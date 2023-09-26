@@ -1,0 +1,20 @@
+{
+    "libraries": {
+        "alpha": "libalpha-bedrock-module.so"
+    },
+    "providers": [
+        {
+            "type": "alpha",
+            "name": "my-alpha-provider",
+            "provider_id": 42,
+            "config": {
+                "resources": [
+                    {
+                        "type": "dummy",
+                        "config": {}
+                    }
+                ]
+            }
+        }
+    ]
+}
