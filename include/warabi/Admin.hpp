@@ -3,26 +3,26 @@
  *
  * See COPYRIGHT in top-level directory.
  */
-#ifndef __ALPHA_ADMIN_HPP
-#define __ALPHA_ADMIN_HPP
+#ifndef __WARABI_ADMIN_HPP
+#define __WARABI_ADMIN_HPP
 
 #include <nlohmann/json.hpp>
 #include <thallium.hpp>
 #include <string>
 #include <memory>
-#include <alpha/Exception.hpp>
-#include <alpha/UUID.hpp>
+#include <warabi/Exception.hpp>
+#include <warabi/UUID.hpp>
 
-namespace alpha {
+namespace warabi {
 
 namespace tl = thallium;
 
 class AdminImpl;
 
 /**
- * @brief Admin interface to a ALPHA service. Enables creating
- * and destroying resources, and attaching and detaching them
- * from a provider. If ALPHA providers have set up a security
+ * @brief Admin interface to a WARABI service. Enables creating
+ * and destroying targets, and attaching and detaching them
+ * from a provider. If WARABI providers have set up a security
  * token, operations from the Admin interface will need this
  * security token.
  */
@@ -82,113 +82,113 @@ class Admin {
     operator bool() const;
 
     /**
-     * @brief Creates a resource on the target provider.
+     * @brief Creates a target on the target provider.
      * The config string must be a JSON object acceptable
      * by the desired backend's creation function.
      *
      * @param address Address of the target provider.
      * @param provider_id Provider id.
-     * @param type Type of the resource to create.
-     * @param config JSON configuration for the resource.
+     * @param type Type of the target to create.
+     * @param config JSON configuration for the target.
      */
-    UUID createResource(const std::string& address,
+    UUID createTarget(const std::string& address,
                         uint16_t provider_id,
                         const std::string& type,
                         const std::string& config,
                         const std::string& token="") const;
 
     /**
-     * @brief Creates a resource on the target provider.
+     * @brief Creates a target on the target provider.
      * The config string must be a JSON object acceptable
      * by the desired backend's creation function.
      *
      * @param address Address of the target provider.
      * @param provider_id Provider id.
-     * @param type Type of the resource to create.
-     * @param config JSON configuration for the resource.
+     * @param type Type of the target to create.
+     * @param config JSON configuration for the target.
      */
-    UUID createResource(const std::string& address,
+    UUID createTarget(const std::string& address,
                         uint16_t provider_id,
                         const std::string& type,
                         const char* config,
                         const std::string& token="") const {
-        return createResource(address, provider_id, type, std::string(config), token);
+        return createTarget(address, provider_id, type, std::string(config), token);
     }
 
     /**
-     * @brief Creates a resource on the target provider.
+     * @brief Creates a target on the target provider.
      * The config object must be a JSON object acceptable
      * by the desired backend's creation function.
      *
      * @param address Address of the target provider.
      * @param provider_id Provider id.
-     * @param type Type of the resource to create.
-     * @param config JSON configuration for the resource.
+     * @param type Type of the target to create.
+     * @param config JSON configuration for the target.
      */
-    UUID createResource(const std::string& address,
+    UUID createTarget(const std::string& address,
                         uint16_t provider_id,
                         const std::string& type,
                         const json& config,
                         const std::string& token="") const {
-        return createResource(address, provider_id, type, config.dump(), token);
+        return createTarget(address, provider_id, type, config.dump(), token);
     }
 
     /**
-     * @brief Opens an existing resource in the target provider.
+     * @brief Opens an existing target in the target provider.
      * The config string must be a JSON object acceptable
      * by the desired backend's open function.
      *
      * @param address Address of the target provider.
      * @param provider_id Provider id.
-     * @param type Type of the resource to create.
-     * @param config JSON configuration for the resource.
+     * @param type Type of the target to create.
+     * @param config JSON configuration for the target.
      */
-    UUID openResource(const std::string& address,
+    UUID openTarget(const std::string& address,
                       uint16_t provider_id,
                       const std::string& type,
                       const std::string& config,
                       const std::string& token="") const;
 
     /**
-     * @brief Opens an existing resource to the target provider.
+     * @brief Opens an existing target to the target provider.
      * The config object must be a JSON object acceptable
      * by the desired backend's open function.
      *
      * @param address Address of the target provider.
      * @param provider_id Provider id.
-     * @param type Type of the resource to create.
-     * @param config JSON configuration for the resource.
+     * @param type Type of the target to create.
+     * @param config JSON configuration for the target.
      */
-    UUID openResource(const std::string& address,
+    UUID openTarget(const std::string& address,
                       uint16_t provider_id,
                       const std::string& type,
                       const json& config,
                       const std::string& token="") const {
-        return openResource(address, provider_id, type, config.dump(), token);
+        return openTarget(address, provider_id, type, config.dump(), token);
     }
 
     /**
-     * @brief Closes an open resource in the target provider.
+     * @brief Closes an open target in the target provider.
      *
      * @param address Address of the target provider.
      * @param provider_id Provider id.
-     * @param resource_id UUID of the resource to close.
+     * @param target_id UUID of the target to close.
      */
-    void closeResource(const std::string& address,
+    void closeTarget(const std::string& address,
                         uint16_t provider_id,
-                        const UUID& resource_id,
+                        const UUID& target_id,
                         const std::string& token="") const;
 
     /**
-     * @brief Destroys an open resource in the target provider.
+     * @brief Destroys an open target in the target provider.
      *
      * @param address Address of the target provider.
      * @param provider_id Provider id.
-     * @param resource_id UUID of the resource to destroy.
+     * @param target_id UUID of the target to destroy.
      */
-    void destroyResource(const std::string& address,
+    void destroyTarget(const std::string& address,
                          uint16_t provider_id,
-                         const UUID& resource_id,
+                         const UUID& target_id,
                          const std::string& token="") const;
 
     /**

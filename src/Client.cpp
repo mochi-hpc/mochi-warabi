@@ -3,19 +3,19 @@
  *
  * See COPYRIGHT in top-level directory.
  */
-#include "alpha/Exception.hpp"
-#include "alpha/Client.hpp"
-#include "alpha/ResourceHandle.hpp"
-#include "alpha/Result.hpp"
+#include "warabi/Exception.hpp"
+#include "warabi/Client.hpp"
+#include "warabi/TargetHandle.hpp"
+#include "warabi/Result.hpp"
 
 #include "ClientImpl.hpp"
-#include "ResourceHandleImpl.hpp"
+#include "TargetHandleImpl.hpp"
 
 #include <thallium/serialization/stl/string.hpp>
 
 namespace tl = thallium;
 
-namespace alpha {
+namespace warabi {
 
 Client::Client() = default;
 
@@ -47,20 +47,20 @@ Client::operator bool() const {
     return static_cast<bool>(self);
 }
 
-ResourceHandle Client::makeResourceHandle(
+TargetHandle Client::makeTargetHandle(
         const std::string& address,
         uint16_t provider_id,
-        const UUID& resource_id,
+        const UUID& target_id,
         bool check) const {
     auto endpoint  = self->m_engine.lookup(address);
     auto ph        = tl::provider_handle(endpoint, provider_id);
     Result<bool> result;
     if(check) {
-        result = self->m_check_resource.on(ph)(resource_id);
+        result = self->m_check_target.on(ph)(target_id);
     }
     return result.andThen([&]() {
-        auto resource_impl = std::make_shared<ResourceHandleImpl>(self, std::move(ph), resource_id);
-        return ResourceHandle(resource_impl);
+        auto target_impl = std::make_shared<TargetHandleImpl>(self, std::move(ph), target_id);
+        return TargetHandle(target_impl);
     });
 }
 

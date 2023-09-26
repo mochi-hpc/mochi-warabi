@@ -3,16 +3,16 @@
  * 
  * See COPYRIGHT in top-level directory.
  */
-#ifndef __ALPHA_ASYNC_REQUEST_HPP
-#define __ALPHA_ASYNC_REQUEST_HPP
+#ifndef __WARABI_ASYNC_REQUEST_HPP
+#define __WARABI_ASYNC_REQUEST_HPP
 
 #include <memory>
 #include <string>
 
-namespace alpha {
+namespace warabi {
 
 class AsyncRequestImpl;
-class ResourceHandle;
+class TargetHandle;
 
 /**
  * @brief AsyncRequest objects are used to keep track of
@@ -20,7 +20,7 @@ class ResourceHandle;
  */
 class AsyncRequest {
 
-    friend ResourceHandle;
+    friend TargetHandle;
 
     public:
 

@@ -3,10 +3,10 @@
  *
  * See COPYRIGHT in top-level directory.
  */
-#ifndef __ALPHA_BACKEND_HPP
-#define __ALPHA_BACKEND_HPP
+#ifndef __WARABI_BACKEND_HPP
+#define __WARABI_BACKEND_HPP
 
-#include <alpha/Result.hpp>
+#include <warabi/Result.hpp>
 #include <unordered_set>
 #include <unordered_map>
 #include <functional>
@@ -17,18 +17,18 @@
  * @brief Helper class to register backend types into the backend factory.
  */
 template<typename BackendType>
-class __AlphaBackendRegistration;
+class __WarabiBackendRegistration;
 
-namespace alpha {
+namespace warabi {
 
 /**
- * @brief Interface for resource backends. To build a new backend,
+ * @brief Interface for target backends. To build a new backend,
  * implement a class MyBackend that inherits from Backend, and put
- * ALPHA_REGISTER_BACKEND(mybackend, MyBackend); in a cpp file
+ * WARABI_REGISTER_BACKEND(mybackend, MyBackend); in a cpp file
  * that includes your backend class' header file.
  *
  * Your backend class should also have two static functions to
- * respectively create and open a resource:
+ * respectively create and open a target:
  *
  * std::unique_ptr<Backend> create(const json& config)
  * std::unique_ptr<Backend> attach(const json& config)
@@ -36,7 +36,7 @@ namespace alpha {
 class Backend {
 
     template<typename BackendType>
-    friend class ::__AlphaBackendRegistration;
+    friend class ::__WarabiBackendRegistration;
 
     std::string m_name;
 
@@ -100,7 +100,7 @@ class Backend {
     virtual Result<int32_t> computeSum(int32_t x, int32_t y) = 0;
 
     /**
-     * @brief Destroys the underlying resource.
+     * @brief Destroys the underlying target.
      *
      * @return a Result<bool> instance indicating
      * whether the database was successfully destroyed.
@@ -110,35 +110,35 @@ class Backend {
 };
 
 /**
- * @brief The ResourceFactory contains functions to create
- * or open resources.
+ * @brief The TargetFactory contains functions to create
+ * or open targets.
  */
-class ResourceFactory {
+class TargetFactory {
 
     template<typename BackendType>
-    friend class ::__AlphaBackendRegistration;
+    friend class ::__WarabiBackendRegistration;
 
     using json = nlohmann::json;
 
     public:
 
-    ResourceFactory() = delete;
+    TargetFactory() = delete;
 
     /**
-     * @brief Creates a resource and returns a unique_ptr to the created instance.
+     * @brief Creates a target and returns a unique_ptr to the created instance.
      *
      * @param backend_name Name of the backend to use.
      * @param engine Thallium engine.
      * @param config Configuration object to pass to the backend's create function.
      *
-     * @return a unique_ptr to the created Resource.
+     * @return a unique_ptr to the created Target.
      */
-    static std::unique_ptr<Backend> createResource(const std::string& backend_name,
+    static std::unique_ptr<Backend> createTarget(const std::string& backend_name,
                                                    const thallium::engine& engine,
                                                    const json& config);
 
     /**
-     * @brief Opens an existing resource and returns a unique_ptr to the
+     * @brief Opens an existing target and returns a unique_ptr to the
      * created backend instance.
      *
      * @param backend_name Name of the backend to use.
@@ -147,7 +147,7 @@ class ResourceFactory {
      *
      * @return a unique_ptr to the created Backend.
      */
-    static std::unique_ptr<Backend> openResource(const std::string& backend_name,
+    static std::unique_ptr<Backend> openTarget(const std::string& backend_name,
                                                 const thallium::engine& engine,
                                                 const json& config);
 
@@ -160,27 +160,27 @@ class ResourceFactory {
                 std::function<std::unique_ptr<Backend>(const thallium::engine&, const json&)>> open_fn;
 };
 
-} // namespace alpha
+} // namespace warabi
 
 
-#define ALPHA_REGISTER_BACKEND(__backend_name, __backend_type) \
-    static __AlphaBackendRegistration<__backend_type> __alpha ## __backend_name ## _backend( #__backend_name )
+#define WARABI_REGISTER_BACKEND(__backend_name, __backend_type) \
+    static __WarabiBackendRegistration<__backend_type> __warabi ## __backend_name ## _backend( #__backend_name )
 
 template<typename BackendType>
-class __AlphaBackendRegistration {
+class __WarabiBackendRegistration {
 
     using json = nlohmann::json;
 
     public:
 
-    __AlphaBackendRegistration(const std::string& backend_name)
+    __WarabiBackendRegistration(const std::string& backend_name)
     {
-        alpha::ResourceFactory::create_fn[backend_name] = [backend_name](const thallium::engine& engine, const json& config) {
+        warabi::TargetFactory::create_fn[backend_name] = [backend_name](const thallium::engine& engine, const json& config) {
             auto p = BackendType::create(engine, config);
             p->m_name = backend_name;
             return p;
         };
-        alpha::ResourceFactory::open_fn[backend_name] = [backend_name](const thallium::engine& engine, const json& config) {
+        warabi::TargetFactory::open_fn[backend_name] = [backend_name](const thallium::engine& engine, const json& config) {
             auto p = BackendType::open(engine, config);
             p->m_name = backend_name;
             return p;

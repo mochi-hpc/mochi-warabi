@@ -3,9 +3,9 @@
  * 
  * See COPYRIGHT in top-level directory.
  */
-#include "alpha/Admin.hpp"
-#include "alpha/Exception.hpp"
-#include "alpha/Result.hpp"
+#include "warabi/Admin.hpp"
+#include "warabi/Exception.hpp"
+#include "warabi/Result.hpp"
 
 #include "AdminImpl.hpp"
 
@@ -13,7 +13,7 @@
 
 namespace tl = thallium;
 
-namespace alpha {
+namespace warabi {
 
 Admin::Admin() = default;
 
@@ -38,45 +38,45 @@ Admin::operator bool() const {
     return static_cast<bool>(self);
 }
 
-UUID Admin::createResource(const std::string& address,
+UUID Admin::createTarget(const std::string& address,
                            uint16_t provider_id,
-                           const std::string& resource_type,
-                           const std::string& resource_config,
+                           const std::string& target_type,
+                           const std::string& target_config,
                            const std::string& token) const {
     auto endpoint  = self->m_engine.lookup(address);
     auto ph        = tl::provider_handle(endpoint, provider_id);
-    Result<UUID> result = self->m_create_resource.on(ph)(token, resource_type, resource_config);
+    Result<UUID> result = self->m_create_target.on(ph)(token, target_type, target_config);
     return std::move(result).valueOrThrow();
 }
 
-UUID Admin::openResource(const std::string& address,
+UUID Admin::openTarget(const std::string& address,
                          uint16_t provider_id,
-                         const std::string& resource_type,
-                         const std::string& resource_config,
+                         const std::string& target_type,
+                         const std::string& target_config,
                          const std::string& token) const {
     auto endpoint  = self->m_engine.lookup(address);
     auto ph        = tl::provider_handle(endpoint, provider_id);
-    Result<UUID> result = self->m_open_resource.on(ph)(token, resource_type, resource_config);
+    Result<UUID> result = self->m_open_target.on(ph)(token, target_type, target_config);
     return std::move(result).valueOrThrow();
 }
 
-void Admin::closeResource(const std::string& address,
+void Admin::closeTarget(const std::string& address,
                            uint16_t provider_id,
-                           const UUID& resource_id,
+                           const UUID& target_id,
                            const std::string& token) const {
     auto endpoint  = self->m_engine.lookup(address);
     auto ph        = tl::provider_handle(endpoint, provider_id);
-    Result<bool> result = self->m_close_resource.on(ph)(token, resource_id);
+    Result<bool> result = self->m_close_target.on(ph)(token, target_id);
     result.check();
 }
 
-void Admin::destroyResource(const std::string& address,
+void Admin::destroyTarget(const std::string& address,
                             uint16_t provider_id,
-                            const UUID& resource_id,
+                            const UUID& target_id,
                             const std::string& token) const {
     auto endpoint  = self->m_engine.lookup(address);
     auto ph        = tl::provider_handle(endpoint, provider_id);
-    Result<bool> result = self->m_destroy_resource.on(ph)(token, resource_id);
+    Result<bool> result = self->m_destroy_target.on(ph)(token, target_id);
     result.check();
 }
 

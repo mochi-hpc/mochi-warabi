@@ -1,14 +1,14 @@
 {
     "libraries": {
-        "alpha": "libalpha-bedrock-module.so"
+        "warabi": "libwarabi-bedrock-module.so"
     },
     "providers": [
         {
-            "type": "alpha",
-            "name": "my-alpha-provider",
+            "type": "warabi",
+            "name": "my-warabi-provider",
             "provider_id": 42,
             "config": {
-                "resources": [
+                "targets": [
                     {
                         "type": "dummy",
                         "config": {}

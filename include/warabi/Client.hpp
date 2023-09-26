@@ -3,26 +3,26 @@
  *
  * See COPYRIGHT in top-level directory.
  */
-#ifndef __ALPHA_CLIENT_HPP
-#define __ALPHA_CLIENT_HPP
+#ifndef __WARABI_CLIENT_HPP
+#define __WARABI_CLIENT_HPP
 
-#include <alpha/ResourceHandle.hpp>
-#include <alpha/UUID.hpp>
+#include <warabi/TargetHandle.hpp>
+#include <warabi/UUID.hpp>
 #include <thallium.hpp>
 #include <memory>
 
-namespace alpha {
+namespace warabi {
 
 class ClientImpl;
-class ResourceHandle;
+class TargetHandle;
 
 /**
  * @brief The Client object is the main object used to establish
- * a connection with a Alpha service.
+ * a connection with a Warabi service.
  */
 class Client {
 
-    friend class ResourceHandle;
+    friend class TargetHandle;
 
     public:
 
@@ -76,20 +76,20 @@ class Client {
     const thallium::engine& engine() const;
 
     /**
-     * @brief Creates a handle to a remote resource and returns.
+     * @brief Creates a handle to a remote target and returns.
      * You may set "check" to false if you know for sure that the
-     * corresponding resource exists, which will avoid one RPC.
+     * corresponding target exists, which will avoid one RPC.
      *
      * @param address Address of the provider holding the database.
      * @param provider_id Provider id.
-     * @param resource_id Resource UUID.
-     * @param check Checks if the Resource exists by issuing an RPC.
+     * @param target_id Target UUID.
+     * @param check Checks if the Target exists by issuing an RPC.
      *
-     * @return a ResourceHandle instance.
+     * @return a TargetHandle instance.
      */
-    ResourceHandle makeResourceHandle(const std::string& address,
+    TargetHandle makeTargetHandle(const std::string& address,
                                       uint16_t provider_id,
-                                      const UUID& resource_id,
+                                      const UUID& target_id,
                                       bool check = true) const;
 
     /**

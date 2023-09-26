@@ -5,34 +5,34 @@
  */
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_all.hpp>
-#include <alpha/Client.hpp>
-#include <alpha/Provider.hpp>
-#include <alpha/ResourceHandle.hpp>
-#include <alpha/Admin.hpp>
+#include <warabi/Client.hpp>
+#include <warabi/Provider.hpp>
+#include <warabi/TargetHandle.hpp>
+#include <warabi/Admin.hpp>
 
-static constexpr const char* resource_config = "{ \"path\" : \"mydb\" }";
-static const std::string resource_type = "dummy";
+static constexpr const char* target_config = "{ \"path\" : \"mydb\" }";
+static const std::string target_type = "dummy";
 
 TEST_CASE("Client test", "[client]") {
 
     auto engine = thallium::engine("na+sm", THALLIUM_SERVER_MODE);
     // Initialize the provider
-    alpha::Provider provider(engine);
-    alpha::Admin admin(engine);
+    warabi::Provider provider(engine);
+    warabi::Admin admin(engine);
     std::string addr = engine.self();
-    auto resource_id = admin.createResource(addr, 0, resource_type, resource_config);
+    auto target_id = admin.createTarget(addr, 0, target_type, target_config);
 
-    SECTION("Open resource") {
-        alpha::Client client(engine);
+    SECTION("Open target") {
+        warabi::Client client(engine);
         std::string addr = engine.self();
 
-        alpha::ResourceHandle my_resource = client.makeResourceHandle(addr, 0, resource_id);
-        REQUIRE(static_cast<bool>(my_resource));
+        warabi::TargetHandle my_target = client.makeTargetHandle(addr, 0, target_id);
+        REQUIRE(static_cast<bool>(my_target));
 
-        auto bad_id = alpha::UUID::generate();
-        REQUIRE_THROWS_AS(client.makeResourceHandle(addr, 0, bad_id), alpha::Exception);
+        auto bad_id = warabi::UUID::generate();
+        REQUIRE_THROWS_AS(client.makeTargetHandle(addr, 0, bad_id), warabi::Exception);
     }
 
-    admin.destroyResource(addr, 0, resource_id);
+    admin.destroyTarget(addr, 0, target_id);
     engine.finalize();
 }

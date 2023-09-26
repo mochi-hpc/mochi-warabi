@@ -3,13 +3,13 @@
  *
  * See COPYRIGHT in top-level directory.
  */
-#ifndef __ALPHA_RESULT_HPP
-#define __ALPHA_RESULT_HPP
+#ifndef __WARABI_RESULT_HPP
+#define __WARABI_RESULT_HPP
 
-#include <alpha/Exception.hpp>
+#include <warabi/Exception.hpp>
 #include <string>
 
-namespace alpha {
+namespace warabi {
 
 /**
  * @brief The Result object is a generic object

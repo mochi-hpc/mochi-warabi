@@ -6,14 +6,14 @@
 #ifndef __DUMMY_BACKEND_HPP
 #define __DUMMY_BACKEND_HPP
 
-#include <alpha/Backend.hpp>
+#include <warabi/Backend.hpp>
 
 using json = nlohmann::json;
 
 /**
- * Dummy implementation of an alpha Backend.
+ * Dummy implementation of an warabi Backend.
  */
-class DummyResource : public alpha::Backend {
+class DummyTarget : public warabi::Backend {
 
     thallium::engine m_engine;
     json             m_config;
@@ -23,35 +23,35 @@ class DummyResource : public alpha::Backend {
     /**
      * @brief Constructor.
      */
-    DummyResource(thallium::engine engine, const json& config);
+    DummyTarget(thallium::engine engine, const json& config);
 
     /**
      * @brief Move-constructor.
      */
-    DummyResource(DummyResource&&) = default;
+    DummyTarget(DummyTarget&&) = default;
 
     /**
      * @brief Copy-constructor.
      */
-    DummyResource(const DummyResource&) = default;
+    DummyTarget(const DummyTarget&) = default;
 
     /**
      * @brief Move-assignment operator.
      */
-    DummyResource& operator=(DummyResource&&) = default;
+    DummyTarget& operator=(DummyTarget&&) = default;
 
     /**
      * @brief Copy-assignment operator.
      */
-    DummyResource& operator=(const DummyResource&) = default;
+    DummyTarget& operator=(const DummyTarget&) = default;
 
     /**
      * @brief Destructor.
      */
-    virtual ~DummyResource() = default;
+    virtual ~DummyTarget() = default;
 
     /**
-     * @brief Get the resource's configuration as a JSON-formatted string.
+     * @brief Get the target's configuration as a JSON-formatted string.
      */
     std::string getConfig() const override;
 
@@ -68,37 +68,37 @@ class DummyResource : public alpha::Backend {
      *
      * @return a Result containing the result.
      */
-    alpha::Result<int32_t> computeSum(int32_t x, int32_t y) override;
+    warabi::Result<int32_t> computeSum(int32_t x, int32_t y) override;
 
     /**
-     * @brief Destroys the underlying resource.
+     * @brief Destroys the underlying target.
      *
      * @return a Result<bool> instance indicating
      * whether the database was successfully destroyed.
      */
-    alpha::Result<bool> destroy() override;
+    warabi::Result<bool> destroy() override;
 
     /**
-     * @brief Static factory function used by the ResourceFactory to
-     * create a DummyResource.
+     * @brief Static factory function used by the TargetFactory to
+     * create a DummyTarget.
      *
      * @param engine Thallium engine
-     * @param config JSON configuration for the resource
+     * @param config JSON configuration for the target
      *
-     * @return a unique_ptr to a resource
+     * @return a unique_ptr to a target
      */
-    static std::unique_ptr<alpha::Backend> create(const thallium::engine& engine, const json& config);
+    static std::unique_ptr<warabi::Backend> create(const thallium::engine& engine, const json& config);
 
     /**
-     * @brief Static factory function used by the ResourceFactory to
-     * open a DummyResource.
+     * @brief Static factory function used by the TargetFactory to
+     * open a DummyTarget.
      *
      * @param engine Thallium engine
-     * @param config JSON configuration for the resource
+     * @param config JSON configuration for the target
      *
-     * @return a unique_ptr to a resource
+     * @return a unique_ptr to a target
      */
-    static std::unique_ptr<alpha::Backend> open(const thallium::engine& engine, const json& config);
+    static std::unique_ptr<warabi::Backend> open(const thallium::engine& engine, const json& config);
 };
 
 #endif

@@ -6,41 +6,41 @@
 #include "DummyBackend.hpp"
 #include <iostream>
 
-ALPHA_REGISTER_BACKEND(dummy, DummyResource);
+WARABI_REGISTER_BACKEND(dummy, DummyTarget);
 
-DummyResource::DummyResource(thallium::engine engine, const json& config)
+DummyTarget::DummyTarget(thallium::engine engine, const json& config)
 : m_engine(std::move(engine)),
   m_config(config) {
 
 }
 
-void DummyResource::sayHello() {
+void DummyTarget::sayHello() {
     std::cout << "Hello World" << std::endl;
 }
 
-std::string DummyResource::getConfig() const {
+std::string DummyTarget::getConfig() const {
     return m_config.dump();
 }
 
-alpha::Result<int32_t> DummyResource::computeSum(int32_t x, int32_t y) {
-    alpha::Result<int32_t> result;
+warabi::Result<int32_t> DummyTarget::computeSum(int32_t x, int32_t y) {
+    warabi::Result<int32_t> result;
     result.value() = x + y;
     return result;
 }
 
-alpha::Result<bool> DummyResource::destroy() {
-    alpha::Result<bool> result;
+warabi::Result<bool> DummyTarget::destroy() {
+    warabi::Result<bool> result;
     result.value() = true;
     // or result.success() = true
     return result;
 }
 
-std::unique_ptr<alpha::Backend> DummyResource::create(const thallium::engine& engine, const json& config) {
+std::unique_ptr<warabi::Backend> DummyTarget::create(const thallium::engine& engine, const json& config) {
     (void)engine;
-    return std::unique_ptr<alpha::Backend>(new DummyResource(engine, config));
+    return std::unique_ptr<warabi::Backend>(new DummyTarget(engine, config));
 }
 
-std::unique_ptr<alpha::Backend> DummyResource::open(const thallium::engine& engine, const json& config) {
+std::unique_ptr<warabi::Backend> DummyTarget::open(const thallium::engine& engine, const json& config) {
     (void)engine;
-    return std::unique_ptr<alpha::Backend>(new DummyResource(engine, config));
+    return std::unique_ptr<warabi::Backend>(new DummyTarget(engine, config));
 }

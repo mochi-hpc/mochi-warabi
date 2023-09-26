@@ -1,4 +1,4 @@
 {
     "service_name": "warabi",
-    "resource_name": "target"
+    "target_name": "target"
 }

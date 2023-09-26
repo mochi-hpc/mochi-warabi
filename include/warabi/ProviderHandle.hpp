@@ -3,12 +3,12 @@
  *
  * See COPYRIGHT in top-level directory.
  */
-#ifndef __ALPHA_PROVIDER_HANDLE_HPP
-#define __ALPHA_PROVIDER_HANDLE_HPP
+#ifndef __WARABI_PROVIDER_HANDLE_HPP
+#define __WARABI_PROVIDER_HANDLE_HPP
 
 #include <thallium.hpp>
 
-namespace alpha {
+namespace warabi {
 
 using ProviderHandle = thallium::provider_handle;
 

@@ -5,7 +5,7 @@ set (server-src-files
 
 set (client-src-files
      Client.cpp
-     ResourceHandle.cpp
+     TargetHandle.cpp
      AsyncRequest.cpp)
 
 set (admin-src-files
@@ -21,112 +21,112 @@ set (module-src-files
 include (CMakePackageConfigHelpers)
 
 # where to install files for "find_package"
-set (alpha-pkg "share/cmake/alpha")
+set (warabi-pkg "share/cmake/warabi")
 
 # set version fo shared library
-set (alpha-vers "${ALPHA_VERSION_MAJOR}.${ALPHA_VERSION_MINOR}")
+set (warabi-vers "${WARABI_VERSION_MAJOR}.${WARABI_VERSION_MINOR}")
 
 # server library
-add_library (alpha-server ${server-src-files} ${dummy-src-files})
-target_link_libraries (alpha-server
+add_library (warabi-server ${server-src-files} ${dummy-src-files})
+target_link_libraries (warabi-server
     PUBLIC thallium PkgConfig::uuid nlohmann_json::nlohmann_json
     PRIVATE spdlog::spdlog fmt::fmt coverage_config)
-target_include_directories (alpha-server PUBLIC $<INSTALL_INTERFACE:include>)
-target_include_directories (alpha-server BEFORE PUBLIC
+target_include_directories (warabi-server PUBLIC $<INSTALL_INTERFACE:include>)
+target_include_directories (warabi-server BEFORE PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>)
-target_include_directories (alpha-server BEFORE PUBLIC
+target_include_directories (warabi-server BEFORE PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>)
-set_target_properties (alpha-server
-    PROPERTIES VERSION ${ALPHA_VERSION}
-    SOVERSION ${ALPHA_VERSION_MAJOR})
+set_target_properties (warabi-server
+    PROPERTIES VERSION ${WARABI_VERSION}
+    SOVERSION ${WARABI_VERSION_MAJOR})
 
 # client library
-add_library (alpha-client ${client-src-files})
-target_link_libraries (alpha-client
+add_library (warabi-client ${client-src-files})
+target_link_libraries (warabi-client
     PUBLIC thallium PkgConfig::uuid nlohmann_json::nlohmann_json
     PRIVATE spdlog::spdlog fmt::fmt coverage_config)
-target_include_directories (alpha-client PUBLIC $<INSTALL_INTERFACE:include>)
-target_include_directories (alpha-client BEFORE PUBLIC
+target_include_directories (warabi-client PUBLIC $<INSTALL_INTERFACE:include>)
+target_include_directories (warabi-client BEFORE PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>)
-target_include_directories (alpha-client BEFORE PUBLIC
+target_include_directories (warabi-client BEFORE PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>)
-set_target_properties (alpha-client
-    PROPERTIES VERSION ${ALPHA_VERSION}
-    SOVERSION ${ALPHA_VERSION_MAJOR})
+set_target_properties (warabi-client
+    PROPERTIES VERSION ${WARABI_VERSION}
+    SOVERSION ${WARABI_VERSION_MAJOR})
 
 # admin library
-add_library (alpha-admin ${admin-src-files})
-target_link_libraries (alpha-admin PUBLIC thallium PkgConfig::uuid nlohmann_json::nlohmann_json
+add_library (warabi-admin ${admin-src-files})
+target_link_libraries (warabi-admin PUBLIC thallium PkgConfig::uuid nlohmann_json::nlohmann_json
     PRIVATE spdlog::spdlog fmt::fmt coverage_config)
-target_include_directories (alpha-admin PUBLIC $<INSTALL_INTERFACE:include>)
-target_include_directories (alpha-admin BEFORE PUBLIC
+target_include_directories (warabi-admin PUBLIC $<INSTALL_INTERFACE:include>)
+target_include_directories (warabi-admin BEFORE PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>)
-target_include_directories (alpha-admin BEFORE PUBLIC
+target_include_directories (warabi-admin BEFORE PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>)
-set_target_properties (alpha-admin
-    PROPERTIES VERSION ${ALPHA_VERSION}
-    SOVERSION ${ALPHA_VERSION_MAJOR})
+set_target_properties (warabi-admin
+    PROPERTIES VERSION ${WARABI_VERSION}
+    SOVERSION ${WARABI_VERSION_MAJOR})
 
 if (${ENABLE_BEDROCK})
 # bedrock module library
-add_library (alpha-bedrock-module ${module-src-files})
-target_link_libraries (alpha-bedrock-module alpha-server alpha-admin alpha-client bedrock-server coverage_config)
-target_include_directories (alpha-bedrock-module PUBLIC $<INSTALL_INTERFACE:include>)
-target_include_directories (alpha-bedrock-module BEFORE PUBLIC
+add_library (warabi-bedrock-module ${module-src-files})
+target_link_libraries (warabi-bedrock-module warabi-server warabi-admin warabi-client bedrock-server coverage_config)
+target_include_directories (warabi-bedrock-module PUBLIC $<INSTALL_INTERFACE:include>)
+target_include_directories (warabi-bedrock-module BEFORE PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>)
-target_include_directories (alpha-bedrock-module BEFORE PUBLIC
+target_include_directories (warabi-bedrock-module BEFORE PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>)
-set_target_properties (alpha-bedrock-module
-    PROPERTIES VERSION ${ALPHA_VERSION}
-    SOVERSION ${ALPHA_VERSION_MAJOR})
+set_target_properties (warabi-bedrock-module
+    PROPERTIES VERSION ${WARABI_VERSION}
+    SOVERSION ${WARABI_VERSION_MAJOR})
 endif ()
 
 # installation stuff (packaging and install commands)
 write_basic_package_version_file (
-    "alpha-config-version.cmake"
-    VERSION ${ALPHA_VERSION}
+    "warabi-config-version.cmake"
+    VERSION ${WARABI_VERSION}
     COMPATIBILITY AnyNewerVersion)
 
 # generate our config file for find_package()
 set (INCLUDE_INSTALL_DIR include/)
 set (LIB_INSTALL_DIR lib/)
-configure_package_config_file (alpha-config.cmake.in
-  ${CMAKE_CURRENT_BINARY_DIR}/alpha-config.cmake
-  INSTALL_DESTINATION ${LIB_INSTALL_DIR}/alpha/cmake
+configure_package_config_file (warabi-config.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/warabi-config.cmake
+  INSTALL_DESTINATION ${LIB_INSTALL_DIR}/warabi/cmake
   PATH_VARS INCLUDE_INSTALL_DIR)
 
 # some bits for the pkg-config file
 set (DEST_DIR "${CMAKE_INSTALL_PREFIX}")
-set (SERVER_PRIVATE_LIBS "-lalpha-server")
-set (CLIENT_PRIVATE_LIBS "-lalpha-client")
-set (ADMIN_PRIVATE_LIBS  "-lalpha-admin")
-configure_file ("alpha-server.pc.in" "alpha-server.pc" @ONLY)
-configure_file ("alpha-client.pc.in" "alpha-client.pc" @ONLY)
-configure_file ("alpha-admin.pc.in"  "alpha-admin.pc"  @ONLY)
+set (SERVER_PRIVATE_LIBS "-lwarabi-server")
+set (CLIENT_PRIVATE_LIBS "-lwarabi-client")
+set (ADMIN_PRIVATE_LIBS  "-lwarabi-admin")
+configure_file ("warabi-server.pc.in" "warabi-server.pc" @ONLY)
+configure_file ("warabi-client.pc.in" "warabi-client.pc" @ONLY)
+configure_file ("warabi-admin.pc.in"  "warabi-admin.pc"  @ONLY)
 
 # configure config.h
 configure_file ("config.h.in" "config.h" @ONLY)
 
 # "make install" rules
-install (TARGETS alpha-admin alpha-server alpha-client
-         EXPORT alpha-targets
+install (TARGETS warabi-admin warabi-server warabi-client
+         EXPORT warabi-targets
          ARCHIVE DESTINATION lib
          LIBRARY DESTINATION lib)
 if (${ENABLE_BEDROCK})
-    install (TARGETS alpha-bedrock-module
+    install (TARGETS warabi-bedrock-module
              ARCHIVE DESTINATION lib
              LIBRARY DESTINATION lib)
 endif ()
-install (EXPORT alpha-targets
-         DESTINATION ${alpha-pkg}
-         FILE "alpha-targets.cmake")
-install (FILES "${CMAKE_CURRENT_BINARY_DIR}/alpha-config.cmake"
-               "${CMAKE_CURRENT_BINARY_DIR}/alpha-config-version.cmake"
-         DESTINATION ${alpha-pkg} )
-install (DIRECTORY ../include/alpha
+install (EXPORT warabi-targets
+         DESTINATION ${warabi-pkg}
+         FILE "warabi-targets.cmake")
+install (FILES "${CMAKE_CURRENT_BINARY_DIR}/warabi-config.cmake"
+               "${CMAKE_CURRENT_BINARY_DIR}/warabi-config-version.cmake"
+         DESTINATION ${warabi-pkg} )
+install (DIRECTORY ../include/warabi
          DESTINATION include
          FILES_MATCHING PATTERN "*.h")
-install (FILES "${CMAKE_CURRENT_BINARY_DIR}/alpha-server.pc"
-               "${CMAKE_CURRENT_BINARY_DIR}/alpha-client.pc"
-               "${CMAKE_CURRENT_BINARY_DIR}/alpha-admin.pc"
+install (FILES "${CMAKE_CURRENT_BINARY_DIR}/warabi-server.pc"
+               "${CMAKE_CURRENT_BINARY_DIR}/warabi-client.pc"
+               "${CMAKE_CURRENT_BINARY_DIR}/warabi-admin.pc"
          DESTINATION "lib/pkgconfig/")

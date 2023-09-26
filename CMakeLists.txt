@@ -1,7 +1,7 @@
 # (C) 2020 The University of Chicago
 # See COPYRIGHT in top-level directory.
 cmake_minimum_required (VERSION 3.8)
-project (alpha C CXX)
+project (warabi C CXX)
 set (CMAKE_CXX_STANDARD 14)
 enable_testing ()
 
@@ -64,11 +64,11 @@ if (${ENABLE_BEDROCK})
 endif ()
 
 # library version set here (e.g. for shared libs).
-set (ALPHA_VERSION_MAJOR 0)
-set (ALPHA_VERSION_MINOR 1)
-set (ALPHA_VERSION_PATCH 0)
-set (ALPHA_VERSION
-     "${ALPHA_VERSION_MAJOR}.${ALPHA_VERSION_MINOR}.${ALPHA_VERSION_PATCH}")
+set (WARABI_VERSION_MAJOR 0)
+set (WARABI_VERSION_MINOR 1)
+set (WARABI_VERSION_PATCH 0)
+set (WARABI_VERSION
+     "${WARABI_VERSION_MAJOR}.${WARABI_VERSION_MINOR}.${WARABI_VERSION_PATCH}")
 
 add_subdirectory (src)
 if (${ENABLE_TESTS})
