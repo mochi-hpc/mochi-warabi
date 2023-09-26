@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
                     warabi::UUID::from_string(g_target.c_str()));
 
         int32_t result;
-        target.computeSum(32, 54, &result);
+//        target.computeSum(32, 54, &result);
 
     } catch(const warabi::Exception& ex) {
         std::cerr << ex.what() << std::endl;

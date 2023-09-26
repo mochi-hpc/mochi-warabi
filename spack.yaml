@@ -3,12 +3,13 @@ spack:
   - cmake
   - pkgconfig
   - uuid
-  - mochi-thallium ^mercury~boostsys~checksum ^libfabric fabrics=tcp,rxm
+  - mochi-thallium
   - nlohmann-json
   - spdlog
   - fmt
   - tclap
-  - mochi-bedrock ~ssg ~abtio
+  - mochi-bedrock
+  - valijson
   concretizer:
     unify: true
     reuse: true

@@ -1,6 +1,6 @@
 /*
- * (C) 2020 The University of Chicago
- * 
+ * (C) 2023 The University of Chicago
+ *
  * See COPYRIGHT in top-level directory.
  */
 #ifndef __WARABI_CLIENT_IMPL_H
@@ -21,12 +21,22 @@ class ClientImpl {
 
     tl::engine           m_engine;
     tl::remote_procedure m_check_target;
-    tl::remote_procedure m_compute_sum;
+    tl::remote_procedure m_create;
+    tl::remote_procedure m_write;
+    tl::remote_procedure m_persist;
+    tl::remote_procedure m_create_write;
+    tl::remote_procedure m_read;
+    tl::remote_procedure m_erase;
 
     ClientImpl(const tl::engine& engine)
     : m_engine(engine)
     , m_check_target(m_engine.define("warabi_check_target"))
-    , m_compute_sum(m_engine.define("warabi_compute_sum"))
+    , m_create(m_engine.define("warabi_create"))
+    , m_write(m_engine.define("warabi_write"))
+    , m_persist(m_engine.define("warabi_persist"))
+    , m_create_write(m_engine.define("warabi_create_write"))
+    , m_read(m_engine.define("warabi_read"))
+    , m_erase(m_engine.define("warabi_erase"))
     {}
 
     ClientImpl(margo_instance_id mid)

@@ -58,6 +58,8 @@ find_package (TCLAP REQUIRED)
 find_package (spdlog REQUIRED)
 # search for fmt
 find_package (fmt REQUIRED)
+# search for valijson
+find_package (valijson REQUIRED)
 # search of bedrock if needed
 if (${ENABLE_BEDROCK})
     find_package (bedrock REQUIRED)

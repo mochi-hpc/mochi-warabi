@@ -25,6 +25,7 @@ TEST_CASE("Target test", "[target]") {
 
         auto rh = client.makeTargetHandle(addr, 0, target_id);
 
+#if 0
         SECTION("Send Sum RPC") {
             int32_t result = 0;
             REQUIRE_NOTHROW(rh.computeSum(42, 51, &result));
@@ -37,6 +38,7 @@ TEST_CASE("Target test", "[target]") {
             REQUIRE_NOTHROW(request.wait());
             REQUIRE(result == 94);
         }
+#endif
 
         auto bad_id = warabi::UUID::generate();
         REQUIRE_THROWS_AS(client.makeTargetHandle(addr, 0, bad_id),
