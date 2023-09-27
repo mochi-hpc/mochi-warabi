@@ -188,6 +188,7 @@ void TargetHandle::createAndWrite(
     if(req == nullptr) { // synchronous call
         Result<RegionID> response = async_response.wait();
         if(region) *region = std::move(response).valueOrThrow();
+        else response.check();
     } else { // asynchronous call
         auto async_request_impl =
             std::make_shared<AsyncRequestImpl>(std::move(async_response));
@@ -195,6 +196,7 @@ void TargetHandle::createAndWrite(
             [region](AsyncRequestImpl& async_request_impl) {
                 Result<RegionID> response = async_request_impl.m_async_response.wait();
                 if(region) *region = std::move(response).valueOrThrow();
+                else response.check();
             };
         *req = AsyncRequest(std::move(async_request_impl));
     }
@@ -282,6 +284,32 @@ void TargetHandle::erase(const RegionID& region,
             [](AsyncRequestImpl& async_request_impl) {
                 Result<bool> response = async_request_impl.m_async_response.wait();
                 response.check();
+            };
+        *req = AsyncRequest(std::move(async_request_impl));
+    }
+}
+
+void TargetHandle::getSize(const RegionID& region,
+                           size_t* size,
+                           AsyncRequest* req) const
+{
+    if(not self) throw Exception("Invalid warabi::TargetHandle object");
+    auto& rpc = self->m_client->m_get_size;
+    auto& ph  = self->m_ph;
+    auto& target_id = self->m_target_id;
+    auto async_response = rpc.on(ph).async(target_id, region);
+    if(req == nullptr) { // synchronous call
+        Result<size_t> response = async_response.wait();
+        if(size) *size = response.valueOrThrow();
+        else response.check();
+    } else { // asynchronous call
+        auto async_request_impl =
+            std::make_shared<AsyncRequestImpl>(std::move(async_response));
+        async_request_impl->m_wait_callback =
+            [size](AsyncRequestImpl& async_request_impl) {
+                Result<size_t> response = async_request_impl.m_async_response.wait();
+                if(size) *size = response.valueOrThrow();
+                else response.check();
             };
         *req = AsyncRequest(std::move(async_request_impl));
     }

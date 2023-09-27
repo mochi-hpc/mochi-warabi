@@ -13,6 +13,8 @@
 #include <nlohmann/json.hpp>
 #include <thallium.hpp>
 
+#include <warabi/RegionID.hpp>
+
 /**
  * @brief Helper class to register backend types into the backend factory.
  */
@@ -20,6 +22,80 @@ template<typename BackendType>
 class __WarabiBackendRegistration;
 
 namespace warabi {
+
+/**
+ * @brief Abstract class representing a handle to a region in
+ * a given Backend. Each Backend implementation will typically
+ * have implementations for WritableRegion and ReadableRegion.
+ */
+class Region {
+
+    public:
+
+    virtual ~Region() {}
+
+    /**
+     * @brief Return the RegionID of the region.
+     */
+    virtual Result<RegionID> getRegionID() = 0;
+
+    /**
+     * @see TopicHandle::getSize
+     */
+    virtual Result<size_t> getSize() = 0;
+
+
+};
+
+class WritableRegion : public Region {
+
+    public:
+
+    /**
+     * @see TopicHandle::write
+     */
+    virtual Result<bool> write(
+        const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes,
+        thallium::bulk data,
+        const std::string& address,
+        size_t bulkOffset,
+        bool persist) = 0;
+
+    /**
+     * @see TopicHandle::write
+     */
+    virtual Result<bool> write(
+        const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes,
+        const void* data, bool persist) = 0;
+
+    /**
+     * @see TopicHandle::persist
+     */
+    virtual Result<bool> persist(
+        const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes) = 0;
+
+};
+
+class ReadableRegion : public Region {
+
+    public:
+
+    /**
+     * @see TopicHandle::read
+     */
+    virtual Result<bool> read(
+            const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes,
+            thallium::bulk data,
+            const std::string& address,
+            size_t bulkOffset) = 0;
+
+    /**
+     * @see TopicHandle::read
+     */
+    virtual Result<bool> read(
+            const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes,
+            void* data) = 0;
+};
 
 /**
  * @brief Interface for target backends. To build a new backend,
@@ -85,19 +161,33 @@ class Backend {
     virtual std::string getConfig() const = 0;
 
     /**
-     * @brief Prints Hello World.
+     * @brief Create a region of a given size and return
+     * an std::unique_ptr to a WritableRegion, or nullptr
+     * if the operation failed.
+     *
+     * @param size Size of the region to create.
+     *
+     * @return std::unique_ptr<WritableRegion>.
      */
-    virtual void sayHello() = 0;
+    virtual std::unique_ptr<WritableRegion> create(size_t size) = 0;
 
     /**
-     * @brief Compute the sum of two integers.
-     *
-     * @param x first integer
-     * @param y second integer
-     *
-     * @return a Result containing the result.
+     * @brief Request access to a particular region for writing.
+     * If the region does not exist, returns a nullptr.
      */
-    virtual Result<int32_t> computeSum(int32_t x, int32_t y) = 0;
+    virtual std::unique_ptr<WritableRegion> write(const RegionID& region) = 0;
+
+    /**
+     * @brief Request access to a particular region for reading.
+     * If the region does not exist, returns a nullptr.
+     */
+    virtual std::unique_ptr<ReadableRegion> read(const RegionID& region) = 0;
+
+    /**
+     * @see TopicHandle::persist
+     */
+    virtual Result<bool> erase(
+            const RegionID& region) = 0;
 
     /**
      * @brief Destroys the underlying target.

@@ -11,6 +11,7 @@
 
 #include <thallium.hpp>
 #include <thallium/serialization/stl/string.hpp>
+#include <thallium/serialization/stl/pair.hpp>
 #include <thallium/serialization/stl/vector.hpp>
 
 #include <nlohmann/json.hpp>
@@ -108,7 +109,14 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     AutoDeregistering m_destroy_target;
     // Client RPC
     AutoDeregistering m_check_target;
-    AutoDeregistering m_compute_sum;
+    AutoDeregistering m_create;
+    AutoDeregistering m_write;
+    AutoDeregistering m_persist;
+    AutoDeregistering m_create_write;
+    AutoDeregistering m_read;
+    AutoDeregistering m_erase;
+    AutoDeregistering m_get_size;
+
     // Backends
     std::unordered_map<UUID, std::shared_ptr<Backend>> m_backends;
     tl::mutex m_backends_mtx;
@@ -122,7 +130,13 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     , m_close_target(define("warabi_close_target", &ProviderImpl::closeTargetRPC, pool))
     , m_destroy_target(define("warabi_destroy_target", &ProviderImpl::destroyTargetRPC, pool))
     , m_check_target(define("warabi_check_target", &ProviderImpl::checkTargetRPC, pool))
-    , m_compute_sum(define("warabi_compute_sum",  &ProviderImpl::computeSumRPC, pool))
+    , m_create(define("warabi_create",  &ProviderImpl::createRPC, pool))
+    , m_write(define("warabi_write",  &ProviderImpl::writeRPC, pool))
+    , m_persist(define("warabi_persist",  &ProviderImpl::persistRPC, pool))
+    , m_create_write(define("warabi_create_write",  &ProviderImpl::createWriteRPC, pool))
+    , m_read(define("warabi_read",  &ProviderImpl::readRPC, pool))
+    , m_erase(define("warabi_erase",  &ProviderImpl::eraseRPC, pool))
+    , m_get_size(define("warabi_get_size",  &ProviderImpl::getSizeRPC, pool))
     {
         trace("Registered provider with id {}", get_provider_id());
         json json_config;
@@ -163,7 +177,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     }
 
     Result<UUID> createTarget(const std::string& target_type,
-                                       const std::string& target_config) {
+                              const std::string& target_config) {
 
         auto target_id = UUID::generate();
         Result<UUID> result;
@@ -208,9 +222,9 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     }
 
     void createTargetRPC(const tl::request& req,
-                           const std::string& token,
-                           const std::string& target_type,
-                           const std::string& target_config) {
+                         const std::string& token,
+                         const std::string& target_type,
+                         const std::string& target_config) {
 
         trace("Received createTarget request", id());
         trace(" => type = {}", target_type);
@@ -230,9 +244,9 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     }
 
     void openTargetRPC(const tl::request& req,
-                         const std::string& token,
-                         const std::string& target_type,
-                         const std::string& target_config) {
+                       const std::string& token,
+                       const std::string& target_type,
+                       const std::string& target_config) {
 
         trace("Received openTarget request");
         trace(" => type = {}", target_type);
@@ -288,8 +302,8 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     }
 
     void closeTargetRPC(const tl::request& req,
-                          const std::string& token,
-                          const UUID& target_id) {
+                        const std::string& token,
+                        const UUID& target_id) {
         trace("Received closeTarget request for target {}",
               target_id.to_string());
 
@@ -320,8 +334,8 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     }
 
     void destroyTargetRPC(const tl::request& req,
-                            const std::string& token,
-                            const UUID& target_id) {
+                          const std::string& token,
+                          const UUID& target_id) {
         Result<bool> result;
         AutoResponse<decltype(result)> response{req, result};
         trace("Received destroyTarget request for target {}", target_id.to_string());
@@ -351,7 +365,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     }
 
     void checkTargetRPC(const tl::request& req,
-                          const UUID& target_id) {
+                        const UUID& target_id) {
         trace("Received checkTarget request for target {}", target_id.to_string());
         Result<bool> result;
         AutoResponse<decltype(result)> response{req, result};
@@ -359,15 +373,130 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         trace("Successfully check for presence of target {}", target_id.to_string());
     }
 
-    void computeSumRPC(const tl::request& req,
-                       const UUID& target_id,
-                       int32_t x, int32_t y) {
-        trace("Received computeSum request for target {}", target_id.to_string());
-        Result<int32_t> result;
+    void createRPC(const tl::request& req,
+                   const UUID& target_id,
+                   size_t size) {
+        trace("Received create request for target {}", target_id.to_string());
+        Result<RegionID> result;
         AutoResponse<decltype(result)> response{req, result};
         FIND_TARGET(target);
-        result = target->computeSum(x, y);
-        trace("Successfully executed computeSum on target {}", target_id.to_string());
+        auto region = target->create(size);
+        if(!region) {
+            result.success() = false;
+            result.error() = "Could not create region";
+            return;
+        }
+        result = region->getRegionID();
+        trace("Successfully executed create on target {}", target_id.to_string());
+    }
+
+    void writeRPC(const tl::request& req,
+                  const UUID& target_id,
+                  const RegionID& region_id,
+                  const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes,
+                  thallium::bulk data,
+                  const std::string& address,
+                  size_t bulkOffset,
+                  bool persist) {
+        trace("Received write request for target {}", target_id.to_string());
+        Result<bool> result;
+        AutoResponse<decltype(result)> response{req, result};
+        FIND_TARGET(target);
+        auto region = target->write(region_id);
+        if(!region) {
+            result.success() = false;
+            result.error() = "Region not found";
+            return;
+        }
+        // TODO
+        trace("Successfully executed write on target {}", target_id.to_string());
+    }
+
+    void persistRPC(const tl::request& req,
+                    const UUID& target_id,
+                    const RegionID& region_id,
+                    const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes) {
+        trace("Received persist request for target {}", target_id.to_string());
+        Result<bool> result;
+        AutoResponse<decltype(result)> response{req, result};
+        FIND_TARGET(target);
+        auto region = target->write(region_id);
+        if(!region) {
+            result.success() = false;
+            result.error() = "Region not found";
+            return;
+        }
+        // TODO
+        trace("Successfully executed persist on target {}", target_id.to_string());
+    }
+
+    void createWriteRPC(const tl::request& req,
+                        const UUID& target_id,
+                        thallium::bulk data,
+                        const std::string& address,
+                        size_t bulkOffset, size_t size,
+                        bool persist) {
+        trace("Received create_write request for target {}", target_id.to_string());
+        Result<RegionID> result;
+        AutoResponse<decltype(result)> response{req, result};
+        FIND_TARGET(target);
+        auto region = target->create(size);
+        if(!region) {
+            result.success() = false;
+            result.error() = "Could not create region";
+            return;
+        }
+        // TODO
+        trace("Successfully executed create_write on target {}", target_id.to_string());
+    }
+
+    void readRPC(const tl::request& req,
+                 const UUID& target_id,
+                 const RegionID& region_id,
+                 const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes,
+                 thallium::bulk data,
+                 const std::string& address,
+                 size_t bulkOffset) {
+        trace("Received read request for target {}", target_id.to_string());
+        Result<bool> result;
+        AutoResponse<decltype(result)> response{req, result};
+        FIND_TARGET(target);
+        auto region = target->read(region_id);
+        if(!region) {
+            result.success() = false;
+            result.error() = "Region not found";
+            return;
+        }
+        // TODO
+        trace("Successfully executed read on target {}", target_id.to_string());
+    }
+
+    void eraseRPC(const tl::request& req,
+                  const UUID& target_id,
+                  const RegionID& region_id) {
+        trace("Received erase request for target {}", target_id.to_string());
+        Result<bool> result;
+        AutoResponse<decltype(result)> response{req, result};
+        FIND_TARGET(target);
+        result = target->erase(region_id);
+        trace("Successfully executed erase on target {}", target_id.to_string());
+    }
+
+    void getSizeRPC(const tl::request& req,
+                    const UUID& target_id,
+                    const RegionID& region_id) {
+        trace("Received get_size request for target {}", target_id.to_string());
+        Result<size_t> result;
+        AutoResponse<decltype(result)> response{req, result};
+        FIND_TARGET(target);
+        auto region = target->read(region_id);
+        if(!region) {
+            result.success() = false;
+            result.error() = "Region not found";
+            return;
+        }
+        result = region->getSize();
+        trace("Successfully executed read on target {}", target_id.to_string());
     }
 
 };

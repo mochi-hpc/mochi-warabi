@@ -13,6 +13,7 @@
 #include <warabi/Client.hpp>
 #include <warabi/Exception.hpp>
 #include <warabi/AsyncRequest.hpp>
+#include <warabi/RegionID.hpp>
 
 namespace warabi {
 
@@ -20,88 +21,6 @@ namespace tl = thallium;
 
 class Client;
 class TargetHandleImpl;
-
-/**
- * @brief How a RegionID is described depends on the backend,
- * so from a client's point of view it's abstracted as a contiguous
- * sequence of bytes (up to 255, to keep sizes small). The first byte
- * contains the size of the content.
- */
-struct RegionID {
-
-    uint8_t* content = nullptr;
-
-    RegionID() = default;
-
-    RegionID(const void* data, uint8_t size)
-    : content{new uint8_t[size + 1]} {
-        content[0] = size + 1;
-        std::memcpy(content + 1, data, size);
-    }
-
-    ~RegionID() {
-        delete[] content;
-    }
-
-    RegionID(RegionID&& other)
-    : content{other.content} {
-        other.content = nullptr;
-    }
-
-    RegionID(const RegionID& other) {
-        if(other.content) {
-            content = new uint8_t[other.content[0]];
-            std::memcpy(content, other.content, other.content[0]);
-        } else {
-            content = nullptr;
-        }
-    }
-
-    RegionID& operator=(RegionID&& other) {
-        if(&other == this) return *this;
-        if(content) delete[] content;
-        content = other.content;
-        other.content = nullptr;
-        return *this;
-    }
-
-    RegionID& operator=(const RegionID& other) {
-        if(&other == this) return *this;
-        if(content) delete[] content;
-        if(other.content) {
-            content = new uint8_t[other.content[0]];
-            std::memcpy(content, other.content, other.content[0]);
-        } else {
-            content = nullptr;
-        }
-        return *this;
-    }
-
-    template<typename Archive>
-    void save(Archive& ar) const {
-        if(content == nullptr) {
-            uint8_t size = 1;
-            ar.write(&size, 1);
-        } else {
-            ar.write(content, content[0]);
-        }
-    }
-
-    template<typename Archive>
-    void load(Archive& ar) {
-        delete[] content;
-        uint8_t size;
-        ar.read(&size, 1);
-        if(size <= 1) {
-            content = nullptr;
-        } else {
-            content = new uint8_t[size];
-            content[0] = size;
-            ar.read(content + 1, size - 1);
-        }
-    }
-
-};
 
 /**
  * @brief A TargetHandle object is a handle for a remote target
@@ -159,7 +78,7 @@ class TargetHandle {
      *
      * @param[out] region Created region ID.
      * @param[in] size Size of the region to create.
-     * @param[in] req Optional request to make the call asynchronous.
+     * @param[out] req Optional request to make the call asynchronous.
      */
     void create(RegionID* region, size_t size,
                 AsyncRequest* req = nullptr) const;
@@ -172,7 +91,7 @@ class TargetHandle {
      * @param[in] data Pointer to the data to write.
      * @param[in] size Size to write.
      * @param[in] persist Whether to also persist to data.
-     * @param[in] req Optional request to make the call asynchronous.
+     * @param[out] req Optional request to make the call asynchronous.
      */
     void write(const RegionID& region,
                size_t regionOffset,
@@ -187,7 +106,7 @@ class TargetHandle {
      * @param[in] regionOffsetSizes Offset/size pairs in the region at which write.
      * @param[in] data Pointer to the data to write.
      * @param[in] persist Whether to also persist to data.
-     * @param[in] req Optional request to make the call asynchronous.
+     * @param[out] req Optional request to make the call asynchronous.
      *
      * Note: the local data pointer is assumed to be contiguous. Its size
      * is computed from the sum of the sizes in the regionOffsetSizes vector.
@@ -208,7 +127,7 @@ class TargetHandle {
      * @param[in] bulkOffset Offset at which the data starts in the bulk handle.
      * @param[in] size Size to write.
      * @param[in] persist Whether to also persist to data.
-     * @param[in] req Optional request to make the call asynchronous.
+     * @param[out] req Optional request to make the call asynchronous.
      *
      * Note: if address is an empty string, it is assumed that the data
      * comes from the calling process.
@@ -231,7 +150,7 @@ class TargetHandle {
      * @param[in] bulkOffset Offset at which the data starts in the bulk handle.
      * @param[in] size Size to write.
      * @param[in] persist Whether to also persist to data.
-     * @param[in] req Optional request to make the call asynchronous.
+     * @param[out] req Optional request to make the call asynchronous.
      *
      * Note: if address is an empty string, it is assumed that the data
      * comes from the calling process.
@@ -247,10 +166,10 @@ class TargetHandle {
     /**
      * @brief Persist a segment of the specified region.
      *
-     * @param region Region to persist.
-     * @param offset Offset from which to persist.
-     * @param size Size to persist.
-     * @param req Optional request to make the call asynchronous.
+     * @param[in] region Region to persist.
+     * @param[in] offset Offset from which to persist.
+     * @param[in] size Size to persist.
+     * @param[out] req Optional request to make the call asynchronous.
      */
     void persist(const RegionID& region,
                  size_t offset, size_t size,
@@ -259,10 +178,10 @@ class TargetHandle {
     /**
      * @brief Persist non-contiguous segments of the specified region.
      *
-     * @param region Region to persist.
-     * @param regionOffsetSizes Offset/size pairs in the region to persist.
-     * @param size Size to persist.
-     * @param req Optional request to make the call asynchronous.
+     * @param[in] region Region to persist.
+     * @param[in] regionOffsetSizes Offset/size pairs in the region to persist.
+     * @param[in] size Size to persist.
+     * @param[out] req Optional request to make the call asynchronous.
      */
     void persist(const RegionID& region,
                  const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes,
@@ -292,11 +211,11 @@ class TargetHandle {
      * @brief Read part of a region into the provided local
      * memory buffer.
      *
-     * @param region Region to read.
-     * @param regionOffset Offset at which to read.
-     * @param data Buffer into which to read.
-     * @param size Size to read.
-     * @param req Optional request to make the call asynchronous.
+     * @param[in] region Region to read.
+     * @param[in] regionOffset Offset at which to read.
+     * @param[in] data Buffer into which to read.
+     * @param[in] size Size to read.
+     * @param[out] req Optional request to make the call asynchronous.
      */
     void read(const RegionID& region,
               size_t regionOffset,
@@ -307,10 +226,10 @@ class TargetHandle {
      * @brief Read non-contiguous part of a region into the provided non-contiguous,
      * local memory buffer.
      *
-     * @param region Region to read.
-     * @param regionOffsetSizes Offset/size pairs in the region to read.
-     * @param data Buffer into which to read.
-     * @param req Optional request to make the call asynchronous.
+     * @param[in] region Region to read.
+     * @param[in] regionOffsetSizes Offset/size pairs in the region to read.
+     * @param[in] data Buffer into which to read.
+     * @param[out] req Optional request to make the call asynchronous.
      *
      * Note: the size to read is computed as the sum of the sizes in the
      * regionOffsetSizes parameter.
@@ -324,13 +243,13 @@ class TargetHandle {
      * @brief Read part of a region into the provided local
      * memory buffer.
      *
-     * @param region Region to read.
-     * @param regionOffset Offset at which to read.
-     * @param data Bulk handle into which to push the data.
-     * @param address Address of the process owning the bulk handle.
-     * @param bulkOffset Offset at which to push in the provided bulk handle.
-     * @param size Size to read.
-     * @param req Optional request to make the call asynchronous.
+     * @param[in] region Region to read.
+     * @param[in] regionOffset Offset at which to read.
+     * @param[in] data Bulk handle into which to push the data.
+     * @param[in] address Address of the process owning the bulk handle.
+     * @param[in] bulkOffset Offset at which to push in the provided bulk handle.
+     * @param[in] size Size to read.
+     * @param[out] req Optional request to make the call asynchronous.
      */
     void read(const RegionID& region,
               size_t regionOffset,
@@ -343,12 +262,12 @@ class TargetHandle {
      * @brief Read part of a region into the provided local
      * memory buffer.
      *
-     * @param region Region to read.
-     * @param regionOffsetSizes Offset/size pairs in the region to read.
-     * @param data Bulk handle into which to push the data.
-     * @param address Address of the process owning the bulk handle.
-     * @param bulkOffset Offset at which to push in the provided bulk handle.
-     * @param req Optional request to make the call asynchronous.
+     * @param[in] region Region to read.
+     * @param[in] regionOffsetSizes Offset/size pairs in the region to read.
+     * @param[in] data Bulk handle into which to push the data.
+     * @param[in] address Address of the process owning the bulk handle.
+     * @param[in] bulkOffset Offset at which to push in the provided bulk handle.
+     * @param[out] req Optional request to make the call asynchronous.
      *
      * Note: the size to read is computed as the sum of the sizes in the
      * regionOffsetSizes parameter.
@@ -363,11 +282,21 @@ class TargetHandle {
     /**
      * @brief Erase a region.
      *
-     * @param region Region to erase.
-     * @param req Optional request to make the call asynchronous.
+     * @param[in] region Region to erase.
+     * @param[out] req Optional request to make the call asynchronous.
      */
     void erase(const RegionID& region,
                AsyncRequest* req = nullptr) const;
+
+    /**
+     * @brief Get the size of the region.
+     *
+     * @param[in] region RegionID.
+     * @param[in] size Size of the region.
+     * @param[out] req Optional request to make the call asynchronous.
+     */
+    void getSize(const RegionID& region, size_t* size,
+                 AsyncRequest* req = nullptr) const;
 
     private:
 
