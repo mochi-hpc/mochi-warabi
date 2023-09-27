@@ -1,7 +1,8 @@
 # set source files
 set (server-src-files
      Provider.cpp
-     Backend.cpp)
+     Backend.cpp
+     MemoryBackend.cpp)
 
 set (client-src-files
      Client.cpp
@@ -10,9 +11,6 @@ set (client-src-files
 
 set (admin-src-files
      Admin.cpp)
-
-set (dummy-src-files
-     dummy/DummyBackend.cpp)
 
 set (module-src-files
      BedrockModule.cpp)

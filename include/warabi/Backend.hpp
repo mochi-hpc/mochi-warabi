@@ -43,8 +43,6 @@ class Region {
      * @see TopicHandle::getSize
      */
     virtual Result<size_t> getSize() = 0;
-
-
 };
 
 class WritableRegion : public Region {
@@ -57,7 +55,7 @@ class WritableRegion : public Region {
     virtual Result<bool> write(
         const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes,
         thallium::bulk data,
-        const std::string& address,
+        const thallium::endpoint& address,
         size_t bulkOffset,
         bool persist) = 0;
 
@@ -86,7 +84,7 @@ class ReadableRegion : public Region {
     virtual Result<bool> read(
             const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes,
             thallium::bulk data,
-            const std::string& address,
+            const thallium::endpoint& address,
             size_t bulkOffset) = 0;
 
     /**
@@ -184,7 +182,7 @@ class Backend {
     virtual std::unique_ptr<ReadableRegion> read(const RegionID& region) = 0;
 
     /**
-     * @see TopicHandle::persist
+     * @see TopicHandle::erase
      */
     virtual Result<bool> erase(
             const RegionID& region) = 0;
