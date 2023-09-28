@@ -27,6 +27,24 @@ struct MemoryRegion : public WritableRegion, public ReadableRegion {
     std::vector<char>&                m_region;
     std::unique_lock<thallium::mutex> m_lock;
 
+    Result<std::vector<std::pair<void*, size_t>>> convertToSegments(
+        const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes) {
+        Result<std::vector<std::pair<void*, size_t>>> result;
+        auto& segments = result.value();
+        segments.reserve(regionOffsetSizes.size());
+        for(size_t i=0; i < regionOffsetSizes.size(); ++i) {
+            if(regionOffsetSizes[i].second == 0) continue;
+            if(regionOffsetSizes[i].first + regionOffsetSizes[i].second > m_region.size()) {
+                result.success() = false;
+                result.error() = "Trying to access region outside of its bounds";
+                return result;
+            }
+            segments.push_back({m_region.data() + regionOffsetSizes[i].first,
+                                regionOffsetSizes[i].second});
+        }
+        return result;
+    }
+
     Result<RegionID> getRegionID() override {
         Result<RegionID> result;
         result.value() = m_id;
@@ -47,22 +65,17 @@ struct MemoryRegion : public WritableRegion, public ReadableRegion {
             bool persist) override {
         (void)persist;
         Result<bool> result;
-        std::vector<std::pair<void*, size_t>> segments;
-        segments.reserve(regionOffsetSizes.size());
-        size_t totalSize = 0;
-        for(size_t i=0; i < regionOffsetSizes.size(); ++i) {
-            if(regionOffsetSizes[i].second == 0) continue;
-            if(regionOffsetSizes[i].first + regionOffsetSizes[i].second > m_region.size()) {
-                result.success() = false;
-                result.error() = "Trying to access region outside of its bounds";
-                return result;
-            }
-            segments.push_back({m_region.data() + regionOffsetSizes[i].first,
-                                regionOffsetSizes[i].second});
-            totalSize += regionOffsetSizes[i].second;
+        auto segments = convertToSegments(regionOffsetSizes);
+        if(!segments.success()) {
+            result.error() = segments.error();
+            result.success() = false;
+            return result;
         }
-        if(segments.size() == 0) return result;
-        auto localBulk = m_engine.expose(segments, thallium::bulk_mode::write_only);
+        if(segments.value().size() == 0) return result;
+        size_t totalSize = std::accumulate(
+            segments.value().begin(), segments.value().end(), (size_t)0,
+            [](size_t acc, const auto& pair) { return acc + pair.second; });
+        auto localBulk = m_engine.expose(segments.value(), thallium::bulk_mode::write_only);
         localBulk << remoteBulk.on(address)(remoteBulkOffset, totalSize);
         return result;
     }
@@ -72,21 +85,15 @@ struct MemoryRegion : public WritableRegion, public ReadableRegion {
             const void* data, bool persist) override {
         (void)persist;
         Result<bool> result;
-        std::vector<std::pair<void*, size_t>> segments;
-        segments.reserve(regionOffsetSizes.size());
-        for(size_t i=0; i < regionOffsetSizes.size(); ++i) {
-            if(regionOffsetSizes[i].second == 0) continue;
-            if(regionOffsetSizes[i].first + regionOffsetSizes[i].second > m_region.size()) {
-                result.success() = false;
-                result.error() = "Trying to access region outside of its bounds";
-                return result;
-            }
-            segments.push_back({m_region.data() + regionOffsetSizes[i].first,
-                                regionOffsetSizes[i].second});
+        auto segments = convertToSegments(regionOffsetSizes);
+        if(!segments.success()) {
+            result.error() = segments.error();
+            result.success() = false;
+            return result;
         }
         size_t offset = 0;
         const char* ptr = (const char*)data;
-        for(auto& segment : segments) {
+        for(auto& segment : segments.value()) {
             std::memcpy(segment.first, ptr + offset, segment.second);
             offset += segment.second;
         }
@@ -112,22 +119,17 @@ struct MemoryRegion : public WritableRegion, public ReadableRegion {
             const thallium::endpoint& address,
             size_t remoteBulkOffset) override {
         Result<bool> result;
-        std::vector<std::pair<void*, size_t>> segments;
-        segments.reserve(regionOffsetSizes.size());
-        size_t totalSize = 0;
-        for(size_t i=0; i < regionOffsetSizes.size(); ++i) {
-            if(regionOffsetSizes[i].second == 0) continue;
-            if(regionOffsetSizes[i].first + regionOffsetSizes[i].second > m_region.size()) {
-                result.success() = false;
-                result.error() = "Trying to access region outside of its bounds";
-                return result;
-            }
-            segments.push_back({m_region.data() + regionOffsetSizes[i].first,
-                                regionOffsetSizes[i].second});
-            totalSize += regionOffsetSizes[i].second;
+        auto segments = convertToSegments(regionOffsetSizes);
+        if(!segments.success()) {
+            result.error() = segments.error();
+            result.success() = false;
+            return result;
         }
-        if(segments.size() == 0) return result;
-        auto localBulk = m_engine.expose(segments, thallium::bulk_mode::read_only);
+        if(segments.value().size() == 0) return result;
+        size_t totalSize = std::accumulate(
+            segments.value().begin(), segments.value().end(), (size_t)0,
+            [](size_t acc, const auto& pair) { return acc + pair.second; });
+        auto localBulk = m_engine.expose(segments.value(), thallium::bulk_mode::read_only);
         localBulk >> remoteBulk.on(address)(remoteBulkOffset, totalSize);
         return result;
      }
@@ -136,21 +138,16 @@ struct MemoryRegion : public WritableRegion, public ReadableRegion {
             const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes,
             void* data) override {
         Result<bool> result;
-        std::vector<std::pair<void*, size_t>> segments;
-        segments.reserve(regionOffsetSizes.size());
-        for(size_t i=0; i < regionOffsetSizes.size(); ++i) {
-            if(regionOffsetSizes[i].second == 0) continue;
-            if(regionOffsetSizes[i].first + regionOffsetSizes[i].second > m_region.size()) {
-                result.success() = false;
-                result.error() = "Trying to access region outside of its bounds";
-                return result;
-            }
-            segments.push_back({m_region.data() + regionOffsetSizes[i].first,
-                                regionOffsetSizes[i].second});
+        auto segments = convertToSegments(regionOffsetSizes);
+        if(!segments.success()) {
+            result.error() = segments.error();
+            result.success() = false;
+            return result;
         }
+        if(segments.value().size() == 0) return result;
         size_t offset = 0;
         char* ptr = (char*)data;
-        for(auto& segment : segments) {
+        for(auto& segment : segments.value()) {
             std::memcpy(ptr + offset, segment.first, segment.second);
             offset += segment.second;
         }
@@ -224,6 +221,11 @@ std::unique_ptr<warabi::Backend> MemoryTarget::create(const thallium::engine& en
 
 std::unique_ptr<warabi::Backend> MemoryTarget::open(const thallium::engine& engine, const json& config) {
     return std::unique_ptr<warabi::Backend>(new MemoryTarget(engine, config));
+}
+
+Result<bool> MemoryTarget::validate(const json& config) {
+    (void)config;
+    return Result<bool>{};
 }
 
 }

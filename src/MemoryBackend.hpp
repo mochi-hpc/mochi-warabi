@@ -105,6 +105,11 @@ class MemoryTarget : public warabi::Backend {
      * @return a unique_ptr to a target
      */
     static std::unique_ptr<warabi::Backend> open(const thallium::engine& engine, const json& config);
+
+    /**
+     * @brief Validates that the configuration is correct for this backend.
+     */
+    static Result<bool> validate(const json& config);
 };
 
 }

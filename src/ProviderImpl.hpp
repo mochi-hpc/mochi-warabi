@@ -6,8 +6,14 @@
 #ifndef __WARABI_PROVIDER_IMPL_H
 #define __WARABI_PROVIDER_IMPL_H
 
+#include <valijson/adapters/nlohmann_json_adapter.hpp>
+#include <valijson/schema.hpp>
+#include <valijson/schema_parser.hpp>
+#include <valijson/validator.hpp>
+
 #include "warabi/Backend.hpp"
 #include "warabi/UUID.hpp"
+#include "warabi/TransferManager.hpp"
 
 #include <thallium.hpp>
 #include <thallium/serialization/stl/string.hpp>
@@ -20,11 +26,11 @@
 #include <tuple>
 
 #define FIND_TARGET(__var__) \
-        std::shared_ptr<Backend> __var__;\
+        std::shared_ptr<TargetEntry> __var__;\
         do {\
-            std::lock_guard<tl::mutex> lock(m_backends_mtx);\
-            auto it = m_backends.find(target_id);\
-            if(it == m_backends.end()) {\
+            std::lock_guard<tl::mutex> lock(m_targets_mtx);\
+            auto it = m_targets.find(target_id);\
+            if(it == m_targets.end()) {\
                 result.success() = false;\
                 result.error() = "Target with UUID "s + target_id.to_string() + " not found";\
                 error(result.error());\
@@ -37,6 +43,39 @@ namespace warabi {
 
 using namespace std::string_literals;
 namespace tl = thallium;
+
+static constexpr const char* configSchema = R"(
+{
+  "type": "object",
+  "properties": {
+    "targets": {
+      "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": {"type": "string"},
+            "config": {"type": "object"},
+            "transfer_manager": {"type": "string"}
+          },
+          "required": ["type"]
+        }
+      },
+      "transfer_managers": {
+        "type": "object",
+        "patternProperties": {
+        ".*": {
+          "type": "object",
+          "properties": {
+            "type": {"type": "string"},
+            "config": {"type": "object"}
+          },
+          "required": ["type"]
+        }
+      }
+    }
+  }
+}
+)";
 
 /**
  * @brief This class automatically deregisters a tl::remote_procedure
@@ -73,6 +112,22 @@ struct AutoResponse {
 
     const tl::request& m_req;
     ResponseType&      m_resp;
+};
+
+struct TargetEntry {
+
+    std::shared_ptr<Backend>         m_target;
+    std::shared_ptr<TransferManager> m_transfer_manager;
+
+    TargetEntry(std::shared_ptr<Backend> target,
+                std::shared_ptr<TransferManager> tm)
+    : m_target(std::move(target))
+    , m_transfer_manager(std::move(tm)) {}
+
+    Backend* operator->() { return m_target.get(); }
+    Backend& operator*() { return *m_target; }
+    const Backend* operator->() const { return m_target.get(); }
+    const Backend& operator*() const { return *m_target; }
 };
 
 class ProviderImpl : public tl::provider<ProviderImpl> {
@@ -118,8 +173,8 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     AutoDeregistering m_get_size;
 
     // Backends
-    std::unordered_map<UUID, std::shared_ptr<Backend>> m_backends;
-    tl::mutex m_backends_mtx;
+    std::unordered_map<UUID, std::shared_ptr<TargetEntry>> m_targets;
+    tl::mutex                                              m_targets_mtx;
 
     ProviderImpl(const tl::engine& engine, uint16_t provider_id, const std::string& config, const tl::pool& pool)
     : tl::provider<ProviderImpl>(engine, provider_id)
@@ -141,18 +196,46 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         trace("Registered provider with id {}", get_provider_id());
         json json_config;
         try {
-            json_config = json::parse(config);
+            if(!json_config.empty())
+                json_config = json::parse(config);
+            else
+                json_config = json::object();
         } catch(json::parse_error& e) {
-            error("Could not parse provider configuration: {}", e.what());
-            return;
+            auto err = fmt::format("Could not parse warabi provider configuration: {}", e.what());
+            error("{}", err);
+            throw Exception(err);
         }
-        if(!json_config.is_object()) return;
+
+        static json schemaDocument = json::parse(configSchema);
+
+        valijson::Schema schemaValidator;
+        valijson::SchemaParser schemaParser;
+        valijson::adapters::NlohmannJsonAdapter schemaAdapter(schemaDocument);
+        schemaParser.populateSchema(schemaAdapter, schemaValidator);
+
+        valijson::Validator validator;
+        valijson::adapters::NlohmannJsonAdapter jsonAdapter(json_config);
+
+        valijson::ValidationResults validationResults;
+        validator.validate(schemaValidator, jsonAdapter, &validationResults);
+
+        if(validationResults.numErrors() != 0) {
+            error("Error(s) while validating JSON config for warabi provider:");
+            for(auto& err : validationResults) {
+                error("\t{}", err.description);
+            }
+            throw Exception("Invalid JSON configuration (see error logs for information)");
+        }
+
         if(!json_config.contains("targets")) return;
         auto& targets = json_config["targets"];
-        if(!targets.is_array()) return;
         for(auto& target : targets) {
-            if(!(target.contains("type") && target["type"].is_string()))
-                continue;
+            auto& target_type = target["type"].get_ref<const std::string&>();
+            auto target_config = target.contains("config") ? target["config"] : json::object();
+            auto valid = validateTargetConfig(target_type, target_config);
+            if(!valid.success()) throw Exception(valid.error());
+        }
+        for(auto& target : targets) {
             const std::string& target_type = target["type"].get_ref<const std::string&>();
             auto target_config = target.contains("config") ? target["config"] : json::object();
             createTarget(target_type, target_config.dump());
@@ -166,36 +249,32 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     std::string getConfig() const {
         auto config = json::object();
         config["targets"] = json::array();
-        for(auto& pair : m_backends) {
+        for(auto& pair : m_targets) {
             auto target_config = json::object();
+            const auto& target_entry = *pair.second;
             target_config["__id__"] = pair.first.to_string();
-            target_config["type"] = pair.second->name();
-            target_config["config"] = json::parse(pair.second->getConfig());
+            target_config["type"] = target_entry->name();
+            target_config["config"] = json::parse(target_entry->getConfig());
+            // TODO add "transfer_manager" entry
             config["targets"].push_back(target_config);
         }
         return config.dump();
     }
 
+    Result<bool> validateTargetConfig(const std::string& target_type,
+                                      const json& target_config) {
+        return TargetFactory::validateConfig(target_type, target_config);
+    }
+
     Result<UUID> createTarget(const std::string& target_type,
-                              const std::string& target_config) {
+                              const json& json_config) {
 
         auto target_id = UUID::generate();
         Result<UUID> result;
 
-        json json_config;
+        std::unique_ptr<Backend> target;
         try {
-            json_config = json::parse(target_config);
-        } catch(json::parse_error& e) {
-            result.error() = e.what();
-            result.success() = false;
-            error("Could not parse target configuration for target {}",
-                  target_id.to_string());
-            return result;
-        }
-
-        std::unique_ptr<Backend> backend;
-        try {
-            backend = TargetFactory::createTarget(target_type, get_engine(), json_config);
+            target = TargetFactory::createTarget(target_type, get_engine(), json_config);
         } catch(const std::exception& ex) {
             result.success() = false;
             result.error() = ex.what();
@@ -204,20 +283,48 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
             return result;
         }
 
-        if(not backend) {
+        if(not target) {
             result.success() = false;
             result.error() = "Unknown target type "s + target_type;
             error("Unknown target type {} for target {}",
                   target_type, target_id.to_string());
             return result;
         } else {
-            std::lock_guard<tl::mutex> lock(m_backends_mtx);
-            m_backends[target_id] = std::move(backend);
+            std::lock_guard<tl::mutex> lock(m_targets_mtx);
+            m_targets[target_id] = std::make_shared<TargetEntry>(
+                std::move(target),
+                nullptr); // TODO add transfer manager
             result.value() = target_id;
         }
 
         trace("Successfully created target {} of type {}",
               target_id.to_string(), target_type);
+        return result;
+    }
+
+    Result<UUID> createTarget(const std::string& target_type,
+                              const std::string& target_config) {
+
+        Result<UUID> result;
+
+        json json_config;
+        try {
+            json_config = json::parse(target_config);
+        } catch(json::parse_error& ex) {
+            result.error() = ex.what();
+            result.success() = false;
+            error("Could not parse target configuration for target");
+            return result;
+        }
+
+        auto valid = validateTargetConfig(target_type, json_config);
+        if(!valid.success()) {
+            result.error() = valid.error();
+            result.success() = false;
+            return result;
+        }
+
+        result = createTarget(target_type, json_config);
         return result;
     }
 
@@ -274,9 +381,9 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
             return;
         }
 
-        std::unique_ptr<Backend> backend;
+        std::unique_ptr<Backend> target;
         try {
-            backend = TargetFactory::openTarget(target_type, get_engine(), json_config);
+            target = TargetFactory::openTarget(target_type, get_engine(), json_config);
         } catch(const std::exception& ex) {
             result.success() = false;
             result.error() = ex.what();
@@ -285,15 +392,17 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
             return;
         }
 
-        if(not backend) {
+        if(not target) {
             result.success() = false;
             result.error() = "Unknown target type "s + target_type;
             error("Unknown target type {} for target {}",
                   target_type, target_id.to_string());
             return;
         } else {
-            std::lock_guard<tl::mutex> lock(m_backends_mtx);
-            m_backends[target_id] = std::move(backend);
+            std::lock_guard<tl::mutex> lock(m_targets_mtx);
+            m_targets[target_id] = std::make_shared<TargetEntry>(
+                std::move(target),
+                nullptr); // TODO add transfer manager
             result.value() = target_id;
         }
 
@@ -318,16 +427,16 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         }
 
         {
-            std::lock_guard<tl::mutex> lock(m_backends_mtx);
+            std::lock_guard<tl::mutex> lock(m_targets_mtx);
 
-            if(m_backends.count(target_id) == 0) {
+            if(m_targets.count(target_id) == 0) {
                 result.success() = false;
                 result.error() = "Target "s + target_id.to_string() + " not found";
                 error(result.error());
                 return;
             }
 
-            m_backends.erase(target_id);
+            m_targets.erase(target_id);
         }
 
         trace("Target {} successfully closed", target_id.to_string());
@@ -348,17 +457,17 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         }
 
         {
-            std::lock_guard<tl::mutex> lock(m_backends_mtx);
+            std::lock_guard<tl::mutex> lock(m_targets_mtx);
 
-            if(m_backends.count(target_id) == 0) {
+            if(m_targets.count(target_id) == 0) {
                 result.success() = false;
                 result.error() = "Target "s + target_id.to_string() + " not found";
                 error(result.error());
                 return;
             }
-
-            result = m_backends[target_id]->destroy();
-            m_backends.erase(target_id);
+            auto& target_entry = *m_targets[target_id];
+            result = target_entry->destroy();
+            m_targets.erase(target_id);
         }
 
         trace("Target {} successfully destroyed", target_id.to_string());
@@ -380,7 +489,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         Result<RegionID> result;
         AutoResponse<decltype(result)> response{req, result};
         FIND_TARGET(target);
-        auto region = target->create(size);
+        auto region = (*target)->create(size);
         if(!region) {
             result.success() = false;
             result.error() = "Could not create region";
@@ -402,7 +511,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         Result<bool> result;
         AutoResponse<decltype(result)> response{req, result};
         FIND_TARGET(target);
-        auto region = target->write(region_id);
+        auto region = (*target)->write(region_id);
         if(!region) {
             result.success() = false;
             result.error() = "Region not found";
@@ -420,7 +529,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         Result<bool> result;
         AutoResponse<decltype(result)> response{req, result};
         FIND_TARGET(target);
-        auto region = target->write(region_id);
+        auto region = (*target)->write(region_id);
         if(!region) {
             result.success() = false;
             result.error() = "Region not found";
@@ -440,7 +549,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         Result<RegionID> result;
         AutoResponse<decltype(result)> response{req, result};
         FIND_TARGET(target);
-        auto region = target->create(size);
+        auto region = (*target)->create(size);
         if(!region) {
             result.success() = false;
             result.error() = "Could not create region";
@@ -461,7 +570,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         Result<bool> result;
         AutoResponse<decltype(result)> response{req, result};
         FIND_TARGET(target);
-        auto region = target->read(region_id);
+        auto region = (*target)->read(region_id);
         if(!region) {
             result.success() = false;
             result.error() = "Region not found";
@@ -478,7 +587,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         Result<bool> result;
         AutoResponse<decltype(result)> response{req, result};
         FIND_TARGET(target);
-        result = target->erase(region_id);
+        result = (*target)->erase(region_id);
         trace("Successfully executed erase on target {}", target_id.to_string());
     }
 
@@ -489,7 +598,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         Result<size_t> result;
         AutoResponse<decltype(result)> response{req, result};
         FIND_TARGET(target);
-        auto region = target->read(region_id);
+        auto region = (*target)->read(region_id);
         if(!region) {
             result.success() = false;
             result.error() = "Region not found";
