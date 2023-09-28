@@ -66,7 +66,7 @@ class MemoryTarget : public warabi::Backend {
      * @brief Request access to a particular region for writing.
      * If the region does not exist, returns a nullptr.
      */
-    std::unique_ptr<WritableRegion> write(const RegionID& region) override;
+    std::unique_ptr<WritableRegion> write(const RegionID& region, bool persist) override;
 
     /**
      * @brief Request access to a particular region for reading.

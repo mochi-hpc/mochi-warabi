@@ -173,7 +173,7 @@ class Backend {
      * @brief Request access to a particular region for writing.
      * If the region does not exist, returns a nullptr.
      */
-    virtual std::unique_ptr<WritableRegion> write(const RegionID& region) = 0;
+    virtual std::unique_ptr<WritableRegion> write(const RegionID& region, bool persist) = 0;
 
     /**
      * @brief Request access to a particular region for reading.

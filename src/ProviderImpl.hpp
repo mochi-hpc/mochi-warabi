@@ -449,13 +449,18 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         Result<bool> result;
         AutoResponse<decltype(result)> response{req, result};
         FIND_TARGET(target);
-        auto region = (*target)->write(region_id);
+        auto region = (*target)->write(region_id, persist);
         if(!region) {
             result.success() = false;
             result.error() = "Region not found";
             return;
         }
-        // TODO
+        auto source = address.empty() ? req.get_endpoint() : m_engine.lookup(address);
+        if(target->m_transfer_manager) {
+            result = target->m_transfer_manager->pull(*region, regionOffsetSizes, data, source, bulkOffset, persist);
+        } else {
+            result = region->write(regionOffsetSizes, data, source, bulkOffset, persist);
+        }
         trace("Successfully executed write on target {}", target_id.to_string());
     }
 
@@ -467,13 +472,13 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         Result<bool> result;
         AutoResponse<decltype(result)> response{req, result};
         FIND_TARGET(target);
-        auto region = (*target)->write(region_id);
+        auto region = (*target)->write(region_id, true);
         if(!region) {
             result.success() = false;
             result.error() = "Region not found";
             return;
         }
-        // TODO
+        result = region->persist(regionOffsetSizes);
         trace("Successfully executed persist on target {}", target_id.to_string());
     }
 
@@ -493,7 +498,18 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
             result.error() = "Could not create region";
             return;
         }
-        // TODO
+        result = region->getRegionID();
+        auto source = address.empty() ? req.get_endpoint() : m_engine.lookup(address);
+        Result<bool> writeResult;
+        if(target->m_transfer_manager) {
+            writeResult = target->m_transfer_manager->pull(*region, {{0, size}}, data, source, bulkOffset, persist);
+        } else {
+            writeResult = region->write({{0, size}}, data, source, bulkOffset, persist);
+        }
+        if(!writeResult.success()) {
+            result.success() = false;
+            result.error() = writeResult.error();
+        }
         trace("Successfully executed create_write on target {}", target_id.to_string());
     }
 
@@ -514,7 +530,12 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
             result.error() = "Region not found";
             return;
         }
-        // TODO
+        auto source = address.empty() ? req.get_endpoint() : m_engine.lookup(address);
+        if(target->m_transfer_manager) {
+            result = target->m_transfer_manager->push(*region, regionOffsetSizes, data, source, bulkOffset);
+        } else {
+            result = region->read(regionOffsetSizes, data, source, bulkOffset);
+        }
         trace("Successfully executed read on target {}", target_id.to_string());
     }
 

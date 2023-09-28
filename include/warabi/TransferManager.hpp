@@ -94,6 +94,7 @@ class TransferManager {
      * @param[in] data Remote bulk to pull from.
      * @param[in] address Address ot the remote process.
      * @param[in] bulkOffset Offset in the bulk handle.
+     * @param[in] persist Whether to persist the data.
      *
      * @return a Result<bool> indicating the result of the operation.
      */
@@ -102,7 +103,8 @@ class TransferManager {
             const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes,
             thallium::bulk data,
             thallium::endpoint address,
-            size_t bulkOffset) = 0;
+            size_t bulkOffset,
+            bool persist) = 0;
 
     /**
      * @brief Push data from the ReadableRegion and to the

@@ -49,7 +49,7 @@ TEST_CASE("Target test", "[target]") {
         warabi::Client client(engine);
         std::string addr = engine.self();
 
-        auto rh = client.makeTargetHandle(addr, 0, target_id);
+        auto th = client.makeTargetHandle(addr, 0, target_id);
 
         SECTION("With blocking API") {
             std::vector<char> in(64);
@@ -57,26 +57,31 @@ TEST_CASE("Target test", "[target]") {
 
             /* create region */
             warabi::RegionID regionID;
-            REQUIRE_NOTHROW(rh.create(&regionID, in.size()));
+            REQUIRE_NOTHROW(th.create(&regionID, in.size()));
+
+            /* check the size of the region */
+            size_t regionSize = 0;
+            REQUIRE_NOTHROW(th.getSize(regionID, &regionSize));
+            REQUIRE(regionSize == in.size());
 
             /* write into the region */
-            REQUIRE_NOTHROW(rh.write(regionID, 0, in.data(), in.size()));
+            REQUIRE_NOTHROW(th.write(regionID, 0, in.data(), in.size()));
 
             /* persist the region */
-            REQUIRE_NOTHROW(rh.persist(regionID, 0, in.size()));
+            REQUIRE_NOTHROW(th.persist(regionID, 0, in.size()));
 
             /* read the data */
             std::vector<char> out(in.size());
-            REQUIRE_NOTHROW(rh.read(regionID, 0, out.data(), out.size()));
+            REQUIRE_NOTHROW(th.read(regionID, 0, out.data(), out.size()));
             REQUIRE(std::memcmp(in.data(), out.data(), in.size()) == 0);
 
             for(size_t i = 0; i < in.size(); ++i) in[i] = 'a' + (i % 26);
 
             /* use createWrite */
-            REQUIRE_NOTHROW(rh.createAndWrite(&regionID, in.data(), in.size(), true));
+            REQUIRE_NOTHROW(th.createAndWrite(&regionID, in.data(), in.size(), true));
 
             /* read the second region */
-            REQUIRE_NOTHROW(rh.read(regionID, 0, out.data(), out.size()));
+            REQUIRE_NOTHROW(th.read(regionID, 0, out.data(), out.size()));
             REQUIRE(std::memcmp(in.data(), out.data(), in.size()) == 0);
         }
     }

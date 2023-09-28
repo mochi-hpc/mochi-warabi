@@ -186,7 +186,8 @@ ssize_t MemoryTarget::regiondIDtoIndex(const RegionID& regionID) {
     return r;
 }
 
-std::unique_ptr<WritableRegion> MemoryTarget::write(const RegionID& region_id) {
+std::unique_ptr<WritableRegion> MemoryTarget::write(const RegionID& region_id, bool persist) {
+    (void)persist;
     auto index = regiondIDtoIndex(region_id);
     if(index < 0) return nullptr;
     auto lock = std::unique_lock<thallium::mutex>{m_mutex};
