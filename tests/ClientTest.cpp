@@ -9,6 +9,7 @@
 #include <warabi/Provider.hpp>
 #include <warabi/TargetHandle.hpp>
 #include <warabi/Admin.hpp>
+#include "defer.hpp"
 
 static constexpr const char* target_config = "{ \"path\" : \"mydb\" }";
 
@@ -17,11 +18,13 @@ TEST_CASE("Client test", "[client]") {
     auto target_type = GENERATE(as<std::string>{}, "memory");
 
     auto engine = thallium::engine("na+sm", THALLIUM_SERVER_MODE);
+    DEFER(engine.finalize());
     // Initialize the provider
     warabi::Provider provider(engine);
     warabi::Admin admin(engine);
     std::string addr = engine.self();
     auto target_id = admin.addTarget(addr, 0, target_type, target_config);
+    DEFER(admin.destroyTarget(addr, 0, target_id));
 
     SECTION("Open target") {
         warabi::Client client(engine);
@@ -33,7 +36,4 @@ TEST_CASE("Client test", "[client]") {
         auto bad_id = warabi::UUID::generate();
         REQUIRE_THROWS_AS(client.makeTargetHandle(addr, 0, bad_id), warabi::Exception);
     }
-
-    admin.destroyTarget(addr, 0, target_id);
-    engine.finalize();
 }

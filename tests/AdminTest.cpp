@@ -7,6 +7,7 @@
 #include <warabi/Provider.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_all.hpp>
+#include "defer.hpp"
 
 static constexpr const char* target_config = "{ \"path\" : \"mydb\" }";
 
@@ -15,6 +16,7 @@ TEST_CASE("Admin tests", "[admin]") {
     auto target_type = GENERATE(as<std::string>{}, "memory");
 
     auto engine = thallium::engine("na+sm", THALLIUM_SERVER_MODE);
+    DEFER(engine.finalize());
     // Initialize the provider
     warabi::Provider provider(engine);
 
@@ -42,6 +44,4 @@ TEST_CASE("Admin tests", "[admin]") {
             REQUIRE_THROWS_AS(admin.destroyTarget(addr, 0, bad_id), warabi::Exception);
         }
     }
-    // Finalize the engine
-    engine.finalize();
 }
