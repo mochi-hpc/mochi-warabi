@@ -8,10 +8,11 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_all.hpp>
 
-static const std::string target_type = "dummy";
 static constexpr const char* target_config = "{ \"path\" : \"mydb\" }";
 
 TEST_CASE("Admin tests", "[admin]") {
+
+    auto target_type = GENERATE(as<std::string>{}, "memory");
 
     auto engine = thallium::engine("na+sm", THALLIUM_SERVER_MODE);
     // Initialize the provider

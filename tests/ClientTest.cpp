@@ -11,9 +11,10 @@
 #include <warabi/Admin.hpp>
 
 static constexpr const char* target_config = "{ \"path\" : \"mydb\" }";
-static const std::string target_type = "dummy";
 
 TEST_CASE("Client test", "[client]") {
+
+    auto target_type = GENERATE(as<std::string>{}, "memory");
 
     auto engine = thallium::engine("na+sm", THALLIUM_SERVER_MODE);
     // Initialize the provider

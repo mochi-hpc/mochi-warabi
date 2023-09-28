@@ -9,10 +9,12 @@
 #include <warabi/Provider.hpp>
 #include <warabi/Admin.hpp>
 
-static const std::string target_type = "dummy";
 static constexpr const char* target_config = "{ \"path\" : \"mydb\" }";
 
 TEST_CASE("Target test", "[target]") {
+
+    auto target_type = GENERATE(as<std::string>{}, "memory");
+
     auto engine = thallium::engine("na+sm", THALLIUM_SERVER_MODE);
     warabi::Admin admin(engine);
     warabi::Provider provider(engine);
