@@ -21,7 +21,7 @@ TEST_CASE("Client test", "[client]") {
     warabi::Provider provider(engine);
     warabi::Admin admin(engine);
     std::string addr = engine.self();
-    auto target_id = admin.createTarget(addr, 0, target_type, target_config);
+    auto target_id = admin.addTarget(addr, 0, target_type, target_config);
 
     SECTION("Open target") {
         warabi::Client client(engine);

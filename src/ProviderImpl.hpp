@@ -158,9 +158,8 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     std::string          m_token;
     tl::pool             m_pool;
     // Admin RPC
-    AutoDeregistering m_create_target;
-    AutoDeregistering m_open_target;
-    AutoDeregistering m_close_target;
+    AutoDeregistering m_add_target;
+    AutoDeregistering m_remove_target;
     AutoDeregistering m_destroy_target;
     // Client RPC
     AutoDeregistering m_check_target;
@@ -180,9 +179,8 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     : tl::provider<ProviderImpl>(engine, provider_id)
     , m_engine(engine)
     , m_pool(pool)
-    , m_create_target(define("warabi_create_target", &ProviderImpl::createTargetRPC, pool))
-    , m_open_target(define("warabi_open_target", &ProviderImpl::openTargetRPC, pool))
-    , m_close_target(define("warabi_close_target", &ProviderImpl::closeTargetRPC, pool))
+    , m_add_target(define("warabi_add_target", &ProviderImpl::addTargetRPC, pool))
+    , m_remove_target(define("warabi_remove_target", &ProviderImpl::removeTargetRPC, pool))
     , m_destroy_target(define("warabi_destroy_target", &ProviderImpl::destroyTargetRPC, pool))
     , m_check_target(define("warabi_check_target", &ProviderImpl::checkTargetRPC, pool))
     , m_create(define("warabi_create",  &ProviderImpl::createRPC, pool))
@@ -238,7 +236,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         for(auto& target : targets) {
             const std::string& target_type = target["type"].get_ref<const std::string&>();
             auto target_config = target.contains("config") ? target["config"] : json::object();
-            createTarget(target_type, target_config.dump());
+            addTarget(target_type, target_config.dump());
         }
     }
 
@@ -266,8 +264,8 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         return TargetFactory::validateConfig(target_type, target_config);
     }
 
-    Result<UUID> createTarget(const std::string& target_type,
-                              const json& json_config) {
+    Result<UUID> addTarget(const std::string& target_type,
+                           const json& json_config) {
 
         auto target_id = UUID::generate();
         Result<UUID> result;
@@ -297,13 +295,13 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
             result.value() = target_id;
         }
 
-        trace("Successfully created target {} of type {}",
+        trace("Successfully added target {} of type {}",
               target_id.to_string(), target_type);
         return result;
     }
 
-    Result<UUID> createTarget(const std::string& target_type,
-                              const std::string& target_config) {
+    Result<UUID> addTarget(const std::string& target_type,
+                           const std::string& target_config) {
 
         Result<UUID> result;
 
@@ -324,96 +322,36 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
             return result;
         }
 
-        result = createTarget(target_type, json_config);
+        result = addTarget(target_type, json_config);
         return result;
     }
 
-    void createTargetRPC(const tl::request& req,
+    void addTargetRPC(const tl::request& req,
+                      const std::string& token,
+                      const std::string& target_type,
+                      const std::string& target_config) {
+
+        trace("Received addTarget request", id());
+        trace(" => type = {}", target_type);
+        trace(" => config = {}", target_config);
+
+        Result<UUID> result;
+        AutoResponse<decltype(result)> response{req, result};
+
+        if(m_token.size() > 0 && m_token != token) {
+            result.success() = false;
+            result.error() = "Invalid security token";
+            error("Invalid security token {}", token);
+            return;
+        }
+
+        result = addTarget(target_type, target_config);
+    }
+
+    void removeTargetRPC(const tl::request& req,
                          const std::string& token,
-                         const std::string& target_type,
-                         const std::string& target_config) {
-
-        trace("Received createTarget request", id());
-        trace(" => type = {}", target_type);
-        trace(" => config = {}", target_config);
-
-        Result<UUID> result;
-        AutoResponse<decltype(result)> response{req, result};
-
-        if(m_token.size() > 0 && m_token != token) {
-            result.success() = false;
-            result.error() = "Invalid security token";
-            error("Invalid security token {}", token);
-            return;
-        }
-
-        result = createTarget(target_type, target_config);
-    }
-
-    void openTargetRPC(const tl::request& req,
-                       const std::string& token,
-                       const std::string& target_type,
-                       const std::string& target_config) {
-
-        trace("Received openTarget request");
-        trace(" => type = {}", target_type);
-        trace(" => config = {}", target_config);
-
-        auto target_id = UUID::generate();
-        Result<UUID> result;
-        AutoResponse<decltype(result)> response{req, result};
-
-        if(m_token.size() > 0 && m_token != token) {
-            result.success() = false;
-            result.error() = "Invalid security token";
-            error("Invalid security token {}", token);
-            return;
-        }
-
-        json json_config;
-        try {
-            json_config = json::parse(target_config);
-        } catch(json::parse_error& e) {
-            result.error() = e.what();
-            result.success() = false;
-            error("Could not parse target configuration for target {}",
-                  target_id.to_string());
-            return;
-        }
-
-        std::unique_ptr<Backend> target;
-        try {
-            target = TargetFactory::openTarget(target_type, get_engine(), json_config);
-        } catch(const std::exception& ex) {
-            result.success() = false;
-            result.error() = ex.what();
-            error("Error when opening target {} of type {}: {}",
-                  target_id.to_string(), target_type, result.error());
-            return;
-        }
-
-        if(not target) {
-            result.success() = false;
-            result.error() = "Unknown target type "s + target_type;
-            error("Unknown target type {} for target {}",
-                  target_type, target_id.to_string());
-            return;
-        } else {
-            std::lock_guard<tl::mutex> lock(m_targets_mtx);
-            m_targets[target_id] = std::make_shared<TargetEntry>(
-                std::move(target),
-                nullptr); // TODO add transfer manager
-            result.value() = target_id;
-        }
-
-        trace("Successfully created target {} of type {}",
-              target_id.to_string(), target_type);
-    }
-
-    void closeTargetRPC(const tl::request& req,
-                        const std::string& token,
-                        const UUID& target_id) {
-        trace("Received closeTarget request for target {}",
+                         const UUID& target_id) {
+        trace("Received removeTarget request for target {}",
               target_id.to_string());
 
         Result<bool> result;
@@ -439,7 +377,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
             m_targets.erase(target_id);
         }
 
-        trace("Target {} successfully closed", target_id.to_string());
+        trace("Target {} successfully removed", target_id.to_string());
     }
 
     void destroyTargetRPC(const tl::request& req,

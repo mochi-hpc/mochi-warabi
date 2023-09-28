@@ -1,6 +1,6 @@
 /*
- * (C) 2020 The University of Chicago
- * 
+ * (C) 2023 The University of Chicago
+ *
  * See COPYRIGHT in top-level directory.
  */
 #ifndef __WARABI_ADMIN_IMPL_H
@@ -17,16 +17,14 @@ class AdminImpl {
     public:
 
     tl::engine           m_engine;
-    tl::remote_procedure m_create_target;
-    tl::remote_procedure m_open_target;
-    tl::remote_procedure m_close_target;
+    tl::remote_procedure m_add_target;
+    tl::remote_procedure m_remove_target;
     tl::remote_procedure m_destroy_target;
 
     AdminImpl(const tl::engine& engine)
     : m_engine(engine)
-    , m_create_target(m_engine.define("warabi_create_target"))
-    , m_open_target(m_engine.define("warabi_open_target"))
-    , m_close_target(m_engine.define("warabi_close_target"))
+    , m_add_target(m_engine.define("warabi_add_target"))
+    , m_remove_target(m_engine.define("warabi_remove_target"))
     , m_destroy_target(m_engine.define("warabi_destroy_target"))
     {}
 

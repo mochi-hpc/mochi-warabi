@@ -23,13 +23,21 @@ TEST_CASE("Admin tests", "[admin]") {
         std::string addr = engine.self();
 
         SECTION("Create and destroy targets") {
-            warabi::UUID target_id = admin.createTarget(addr, 0, target_type, target_config);
+            /* correct target creation */
+            warabi::UUID target_id = admin.addTarget(addr, 0, target_type, target_config);
 
-            REQUIRE_THROWS_AS(admin.createTarget(addr, 0, "blabla", target_config),
+            /* target creation with a bad target type */
+            REQUIRE_THROWS_AS(admin.addTarget(addr, 0, "blabla", target_config),
                               warabi::Exception);
 
+            /* target creation with a bad configuration */
+            REQUIRE_THROWS_AS(admin.addTarget(addr, 0, target_type, "{["),
+                              warabi::Exception);
+
+            /* correctly destroy target */
             admin.destroyTarget(addr, 0, target_id);
 
+            /* destroy a target with an ID that does not exist */
             warabi::UUID bad_id;
             REQUIRE_THROWS_AS(admin.destroyTarget(addr, 0, bad_id), warabi::Exception);
         }

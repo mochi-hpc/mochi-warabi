@@ -35,18 +35,14 @@ int main(int argc, char** argv) {
         // Initialize an Admin
         warabi::Admin admin(engine);
 
-        if(g_operation == "create") {
-            auto id = admin.createTarget(g_address, g_provider_id,
+        if(g_operation == "add") {
+            auto id = admin.addTarget(g_address, g_provider_id,
                 g_type, g_config, g_token);
-            spdlog::info("Created target {}", id.to_string());
-        } else if(g_operation == "open") {
-            auto id = admin.openTarget(g_address, g_provider_id,
-                g_type, g_config, g_token);
-            spdlog::info("Opened target {}", id.to_string());
-        } else if(g_operation == "close") {
-            admin.closeTarget(g_address, g_provider_id,
+            spdlog::info("Added target {}", id.to_string());
+        } else if(g_operation == "remove") {
+            admin.removeTarget(g_address, g_provider_id,
                 warabi::UUID::from_string(g_target.c_str()), g_token);
-            spdlog::info("Closed target {}", g_target);
+            spdlog::info("Removed target {}", g_target);
         } else if(g_operation == "destroy") {
             admin.destroyTarget(g_address, g_provider_id,
                 warabi::UUID::from_string(g_target.c_str()), g_token);
@@ -68,11 +64,11 @@ void parse_command_line(int argc, char** argv) {
         TCLAP::ValueArg<std::string> addressArg("a","address","Address or server", true,"","string");
         TCLAP::ValueArg<unsigned>    providerArg("p", "provider", "Provider id to contact (default 0)", false, 0, "int");
         TCLAP::ValueArg<std::string> tokenArg("s","token","Security token", false,"","string");
-        TCLAP::ValueArg<std::string> typeArg("t","type","Target type", false,"dummy","string");
+        TCLAP::ValueArg<std::string> typeArg("t","type","Target type", false,"memory","string");
         TCLAP::ValueArg<std::string> targetArg("r","target","Target id", false, warabi::UUID().to_string(),"string");
         TCLAP::ValueArg<std::string> configArg("c","config","Target configuration", false,"","string");
         TCLAP::ValueArg<std::string> logLevel("v","verbose", "Log level (trace, debug, info, warning, error, critical, off)", false, "info", "string");
-        std::vector<std::string> options = { "create", "open", "close", "destroy" };
+        std::vector<std::string> options = { "add", "remove", "destroy" };
         TCLAP::ValuesConstraint<std::string> allowedOptions(options);
         TCLAP::ValueArg<std::string> operationArg("x","exec","Operation to execute",true,"create",&allowedOptions);
         cmd.add(addressArg);

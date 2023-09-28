@@ -1,6 +1,6 @@
 /*
- * (C) 2020 The University of Chicago
- * 
+ * (C) 2023 The University of Chicago
+ *
  * See COPYRIGHT in top-level directory.
  */
 #include "warabi/Admin.hpp"
@@ -38,42 +38,31 @@ Admin::operator bool() const {
     return static_cast<bool>(self);
 }
 
-UUID Admin::createTarget(const std::string& address,
-                           uint16_t provider_id,
-                           const std::string& target_type,
-                           const std::string& target_config,
-                           const std::string& token) const {
+UUID Admin::addTarget(const std::string& address,
+                      uint16_t provider_id,
+                      const std::string& target_type,
+                      const std::string& target_config,
+                      const std::string& token) const {
     auto endpoint  = self->m_engine.lookup(address);
     auto ph        = tl::provider_handle(endpoint, provider_id);
-    Result<UUID> result = self->m_create_target.on(ph)(token, target_type, target_config);
+    Result<UUID> result = self->m_add_target.on(ph)(token, target_type, target_config);
     return std::move(result).valueOrThrow();
 }
 
-UUID Admin::openTarget(const std::string& address,
+void Admin::removeTarget(const std::string& address,
                          uint16_t provider_id,
-                         const std::string& target_type,
-                         const std::string& target_config,
+                         const UUID& target_id,
                          const std::string& token) const {
     auto endpoint  = self->m_engine.lookup(address);
     auto ph        = tl::provider_handle(endpoint, provider_id);
-    Result<UUID> result = self->m_open_target.on(ph)(token, target_type, target_config);
-    return std::move(result).valueOrThrow();
-}
-
-void Admin::closeTarget(const std::string& address,
-                           uint16_t provider_id,
-                           const UUID& target_id,
-                           const std::string& token) const {
-    auto endpoint  = self->m_engine.lookup(address);
-    auto ph        = tl::provider_handle(endpoint, provider_id);
-    Result<bool> result = self->m_close_target.on(ph)(token, target_id);
+    Result<bool> result = self->m_remove_target.on(ph)(token, target_id);
     result.check();
 }
 
 void Admin::destroyTarget(const std::string& address,
-                            uint16_t provider_id,
-                            const UUID& target_id,
-                            const std::string& token) const {
+                          uint16_t provider_id,
+                          const UUID& target_id,
+                          const std::string& token) const {
     auto endpoint  = self->m_engine.lookup(address);
     auto ph        = tl::provider_handle(endpoint, provider_id);
     Result<bool> result = self->m_destroy_target.on(ph)(token, target_id);

@@ -226,20 +226,6 @@ class TargetFactory {
                                                  const json& config);
 
     /**
-     * @brief Opens an existing target and returns a unique_ptr to the
-     * created backend instance.
-     *
-     * @param backend_name Name of the backend to use.
-     * @param engine Thallium engine.
-     * @param config Configuration object to pass to the backend's open function.
-     *
-     * @return a unique_ptr to the created Backend.
-     */
-    static std::unique_ptr<Backend> openTarget(const std::string& backend_name,
-                                               const thallium::engine& engine,
-                                               const json& config);
-
-    /**
      * @brief Validate that the JSON configuration has the expected schema.
      *
      * @param backend_name Name of the backend to use.
@@ -253,9 +239,6 @@ class TargetFactory {
 
     static std::unordered_map<std::string,
                 std::function<std::unique_ptr<Backend>(const thallium::engine&, const json&)>> create_fn;
-
-    static std::unordered_map<std::string,
-                std::function<std::unique_ptr<Backend>(const thallium::engine&, const json&)>> open_fn;
 
     static std::unordered_map<std::string,
                 std::function<Result<bool>(const json&)>> validate_fn;
@@ -278,11 +261,6 @@ class __WarabiBackendRegistration {
     {
         warabi::TargetFactory::create_fn[backend_name] = [backend_name](const thallium::engine& engine, const json& config) {
             auto p = BackendType::create(engine, config);
-            p->m_name = backend_name;
-            return p;
-        };
-        warabi::TargetFactory::open_fn[backend_name] = [backend_name](const thallium::engine& engine, const json& config) {
-            auto p = BackendType::open(engine, config);
             p->m_name = backend_name;
             return p;
         };
