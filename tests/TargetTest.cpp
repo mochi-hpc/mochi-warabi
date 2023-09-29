@@ -9,12 +9,12 @@
 #include <warabi/Provider.hpp>
 #include <warabi/Admin.hpp>
 #include "defer.hpp"
-
-static constexpr const char* target_config = "{ \"path\" : \"mydb\" }";
+#include "configs.hpp"
 
 TEST_CASE("Target test", "[target]") {
 
-    auto target_type = GENERATE(as<std::string>{}, "memory");
+    auto target_type = GENERATE(as<std::string>{}, "memory", "pmdk");
+    auto target_config = makeConfigForBackend(target_type);
 
     auto engine = thallium::engine("na+sm", THALLIUM_SERVER_MODE);
     DEFER(engine.finalize());

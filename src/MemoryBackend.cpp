@@ -220,10 +220,6 @@ std::unique_ptr<warabi::Backend> MemoryTarget::create(const thallium::engine& en
     return std::unique_ptr<warabi::Backend>(new MemoryTarget(engine, config));
 }
 
-std::unique_ptr<warabi::Backend> MemoryTarget::open(const thallium::engine& engine, const json& config) {
-    return std::unique_ptr<warabi::Backend>(new MemoryTarget(engine, config));
-}
-
 Result<bool> MemoryTarget::validate(const json& config) {
     (void)config;
     return Result<bool>{};

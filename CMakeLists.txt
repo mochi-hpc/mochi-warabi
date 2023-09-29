@@ -2,7 +2,7 @@
 # See COPYRIGHT in top-level directory.
 cmake_minimum_required (VERSION 3.8)
 project (warabi C CXX)
-set (CMAKE_CXX_STANDARD 14)
+set (CMAKE_CXX_STANDARD 17)
 enable_testing ()
 
 add_definitions (-Wextra -Wall -Wpedantic)
@@ -60,6 +60,8 @@ find_package (spdlog REQUIRED)
 find_package (fmt REQUIRED)
 # search for valijson
 find_package (valijson REQUIRED)
+# search for libpmemobj
+pkg_check_modules (libpmemobj REQUIRED IMPORTED_TARGET libpmemobj)
 # search of bedrock if needed
 if (${ENABLE_BEDROCK})
     find_package (bedrock REQUIRED)

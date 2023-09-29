@@ -276,15 +276,15 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         } catch(const std::exception& ex) {
             result.success() = false;
             result.error() = ex.what();
-            error("Error when creating target {} of type {}: {}",
+            error("Exception when creating target {} of type {}: {}",
                    target_id.to_string(), target_type, result.error());
             return result;
         }
 
         if(not target) {
             result.success() = false;
-            result.error() = "Unknown target type "s + target_type;
-            error("Unknown target type {} for target {}",
+            result.error() = "Could not create target of type \""s + target_type + "\"";
+            error("Could not create target of type {}",
                   target_type, target_id.to_string());
             return result;
         } else {

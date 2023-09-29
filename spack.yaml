@@ -5,6 +5,7 @@ spack:
   - uuid
   - mochi-thallium
   - nlohmann-json
+  - pmdk
   - spdlog
   - fmt
   - tclap

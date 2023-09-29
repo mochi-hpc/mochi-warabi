@@ -6,6 +6,7 @@ spack:
   - mochi-thallium
   - nlohmann-json
   - spdlog
+  - pmdk
   - fmt
   - tclap
   - mochi-bedrock ^mpich

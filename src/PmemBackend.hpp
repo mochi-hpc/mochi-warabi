@@ -3,48 +3,48 @@
  *
  * See COPYRIGHT in top-level directory.
  */
-#ifndef __MEMORY_BACKEND_HPP
-#define __MEMORY_BACKEND_HPP
+#ifndef __PMEM_BACKEND_HPP
+#define __PMEM_BACKEND_HPP
 
 #include <warabi/Backend.hpp>
+#include <libpmemobj.h>
 
 namespace warabi {
 
 using json = nlohmann::json;
 
 /**
- * Memory-based implementation of an warabi Backend.
+ * Pmem-based implementation of an warabi Backend.
  */
-class MemoryTarget : public warabi::Backend {
+class PmemTarget : public warabi::Backend {
 
     thallium::engine               m_engine;
     json                           m_config;
-    std::vector<std::vector<char>> m_regions;
-    thallium::mutex                m_mutex;
+    PMEMobjpool*                   m_pmem_pool;
+    std::string                    m_filename;
 
-    static ssize_t regiondIDtoIndex(const RegionID& regionID);
 
     public:
 
     /**
      * @brief Constructor.
      */
-    MemoryTarget(thallium::engine engine, const json& config);
+    PmemTarget(thallium::engine engine, const json& config, PMEMobjpool* pool);
 
     /**
      * @brief Move-constructor.
      */
-    MemoryTarget(MemoryTarget&&) = default;
+    PmemTarget(PmemTarget&&) = default;
 
     /**
      * @brief Move-assignment operator.
      */
-    MemoryTarget& operator=(MemoryTarget&&) = default;
+    PmemTarget& operator=(PmemTarget&&) = default;
 
     /**
      * @brief Destructor.
      */
-    virtual ~MemoryTarget() = default;
+    virtual ~PmemTarget();
 
     /**
      * @brief Get the target's configuration as a JSON-formatted string.
@@ -86,7 +86,7 @@ class MemoryTarget : public warabi::Backend {
 
     /**
      * @brief Static factory function used by the TargetFactory to
-     * create a MemoryTarget.
+     * create a PmemTarget.
      *
      * @param engine Thallium engine
      * @param config JSON configuration for the target

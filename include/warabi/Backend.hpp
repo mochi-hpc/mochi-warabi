@@ -208,9 +208,10 @@ class TargetFactory {
 
     using json = nlohmann::json;
 
+    TargetFactory() = default;
+
     public:
 
-    TargetFactory() = delete;
 
     /**
      * @brief Creates a target and returns a unique_ptr to the created instance.
@@ -235,13 +236,21 @@ class TargetFactory {
      */
     static Result<bool> validateConfig(const std::string& backend_name, const json& config);
 
+    /**
+     * @brief Get a singleton instance.
+     */
+    static TargetFactory& instance() {
+        static TargetFactory f;
+        return f;
+    }
+
     private:
 
-    static std::unordered_map<std::string,
-                std::function<std::unique_ptr<Backend>(const thallium::engine&, const json&)>> create_fn;
+    std::unordered_map<std::string,
+        std::function<std::unique_ptr<Backend>(const thallium::engine&, const json&)>> create_fn;
 
-    static std::unordered_map<std::string,
-                std::function<Result<bool>(const json&)>> validate_fn;
+    std::unordered_map<std::string,
+        std::function<Result<bool>(const json&)>> validate_fn;
 };
 
 } // namespace warabi
@@ -259,13 +268,16 @@ class __WarabiBackendRegistration {
 
     __WarabiBackendRegistration(const std::string& backend_name)
     {
-        warabi::TargetFactory::create_fn[backend_name] = [backend_name](const thallium::engine& engine, const json& config) {
-            auto p = BackendType::create(engine, config);
-            p->m_name = backend_name;
-            return p;
+        warabi::TargetFactory::instance().create_fn[backend_name] =
+            [backend_name](const thallium::engine& engine, const json& config) {
+                auto p = BackendType::create(engine, config);
+                if(!p) return (decltype(p))nullptr;
+                p->m_name = backend_name;
+                return p;
         };
-        warabi::TargetFactory::validate_fn[backend_name] = [backend_name](const json& config) {
-            return BackendType::validate(config);
+        warabi::TargetFactory::instance().validate_fn[backend_name] =
+            [backend_name](const json& config) {
+                return BackendType::validate(config);
         };
     }
 };

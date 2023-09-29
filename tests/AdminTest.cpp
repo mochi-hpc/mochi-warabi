@@ -8,12 +8,12 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_all.hpp>
 #include "defer.hpp"
-
-static constexpr const char* target_config = "{ \"path\" : \"mydb\" }";
+#include "configs.hpp"
 
 TEST_CASE("Admin tests", "[admin]") {
 
-    auto target_type = GENERATE(as<std::string>{}, "memory");
+    auto target_type = GENERATE(as<std::string>{}, "memory", "pmdk");
+    auto target_config = makeConfigForBackend(target_type);
 
     auto engine = thallium::engine("na+sm", THALLIUM_SERVER_MODE);
     DEFER(engine.finalize());
