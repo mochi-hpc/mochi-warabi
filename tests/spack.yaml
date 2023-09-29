@@ -3,7 +3,7 @@ spack:
   - cmake
   - pkgconfig
   - uuid
-  - mochi-thallium@0.11.3:
+  - mochi-thallium
   - nlohmann-json
   - spdlog
   - pmdk
