@@ -270,28 +270,17 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         auto target_id = UUID::generate();
         Result<UUID> result;
 
-        std::unique_ptr<Backend> target;
-        try {
-            target = TargetFactory::createTarget(target_type, get_engine(), json_config);
-        } catch(const std::exception& ex) {
-            result.success() = false;
-            result.error() = ex.what();
-            error("Exception when creating target {} of type {}: {}",
-                   target_id.to_string(), target_type, result.error());
-            return result;
-        }
+        auto target = TargetFactory::createTarget(target_type, get_engine(), json_config);
 
-        if(not target) {
+        if(not target.success()) {
             result.success() = false;
-            result.error() = "Could not create target of type \""s + target_type + "\"";
-            error("Could not create target of type {}",
-                  target_type, target_id.to_string());
+            result.error() = target.error();
             return result;
         } else {
             std::lock_guard<tl::mutex> lock(m_targets_mtx);
             m_targets[target_id] = std::make_shared<TargetEntry>(
-                std::move(target),
-                nullptr); // TODO add transfer manager
+                std::shared_ptr<Backend>(std::move(target.value())),
+                std::shared_ptr<TransferManager>{nullptr}); // TODO add transfer manager
             result.value() = target_id;
         }
 
@@ -428,12 +417,12 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         AutoResponse<decltype(result)> response{req, result};
         FIND_TARGET(target);
         auto region = (*target)->create(size);
-        if(!region) {
+        if(!region.success()) {
             result.success() = false;
-            result.error() = "Could not create region";
+            result.error() = region.error();
             return;
         }
-        result = region->getRegionID();
+        result = region.value()->getRegionID();
         trace("Successfully executed create on target {}", target_id.to_string());
     }
 
@@ -450,16 +439,18 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         AutoResponse<decltype(result)> response{req, result};
         FIND_TARGET(target);
         auto region = (*target)->write(region_id, persist);
-        if(!region) {
+        if(!region.success()) {
             result.success() = false;
-            result.error() = "Region not found";
+            result.error() = region.error();
             return;
         }
         auto source = address.empty() ? req.get_endpoint() : m_engine.lookup(address);
         if(target->m_transfer_manager) {
-            result = target->m_transfer_manager->pull(*region, regionOffsetSizes, data, source, bulkOffset, persist);
+            result = target->m_transfer_manager->pull(
+                *region.value(), regionOffsetSizes, data, source, bulkOffset, persist);
         } else {
-            result = region->write(regionOffsetSizes, data, source, bulkOffset, persist);
+            result = region.value()->write(
+                regionOffsetSizes, data, source, bulkOffset, persist);
         }
         trace("Successfully executed write on target {}", target_id.to_string());
     }
@@ -473,12 +464,12 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         AutoResponse<decltype(result)> response{req, result};
         FIND_TARGET(target);
         auto region = (*target)->write(region_id, true);
-        if(!region) {
+        if(!region.success()) {
             result.success() = false;
-            result.error() = "Region not found";
+            result.error() = region.error();
             return;
         }
-        result = region->persist(regionOffsetSizes);
+        result = region.value()->persist(regionOffsetSizes);
         trace("Successfully executed persist on target {}", target_id.to_string());
     }
 
@@ -493,18 +484,20 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         AutoResponse<decltype(result)> response{req, result};
         FIND_TARGET(target);
         auto region = (*target)->create(size);
-        if(!region) {
+        if(!region.success()) {
             result.success() = false;
-            result.error() = "Could not create region";
+            result.error() = region.error();
             return;
         }
-        result = region->getRegionID();
+        result = region.value()->getRegionID();
         auto source = address.empty() ? req.get_endpoint() : m_engine.lookup(address);
         Result<bool> writeResult;
         if(target->m_transfer_manager) {
-            writeResult = target->m_transfer_manager->pull(*region, {{0, size}}, data, source, bulkOffset, persist);
+            writeResult = target->m_transfer_manager->pull(
+                *region.value(), {{0, size}}, data, source, bulkOffset, persist);
         } else {
-            writeResult = region->write({{0, size}}, data, source, bulkOffset, persist);
+            writeResult = region.value()->write(
+                {{0, size}}, data, source, bulkOffset, persist);
         }
         if(!writeResult.success()) {
             result.success() = false;
@@ -525,16 +518,18 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         AutoResponse<decltype(result)> response{req, result};
         FIND_TARGET(target);
         auto region = (*target)->read(region_id);
-        if(!region) {
+        if(!region.value()) {
             result.success() = false;
-            result.error() = "Region not found";
+            result.error() = region.error();
             return;
         }
         auto source = address.empty() ? req.get_endpoint() : m_engine.lookup(address);
         if(target->m_transfer_manager) {
-            result = target->m_transfer_manager->push(*region, regionOffsetSizes, data, source, bulkOffset);
+            result = target->m_transfer_manager->push(
+                *region.value(), regionOffsetSizes, data, source, bulkOffset);
         } else {
-            result = region->read(regionOffsetSizes, data, source, bulkOffset);
+            result = region.value()->read(
+                regionOffsetSizes, data, source, bulkOffset);
         }
         trace("Successfully executed read on target {}", target_id.to_string());
     }
@@ -558,12 +553,12 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         AutoResponse<decltype(result)> response{req, result};
         FIND_TARGET(target);
         auto region = (*target)->read(region_id);
-        if(!region) {
+        if(!region.success()) {
             result.success() = false;
-            result.error() = "Region not found";
+            result.error() = region.error();
             return;
         }
-        result = region->getSize();
+        result = region.value()->getSize();
         trace("Successfully executed read on target {}", target_id.to_string());
     }
 

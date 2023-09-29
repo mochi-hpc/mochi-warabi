@@ -219,45 +219,60 @@ Result<bool> PmemTarget::destroy() {
     return result;
 }
 
-std::unique_ptr<WritableRegion> PmemTarget::create(size_t size) {
-    if(!m_pmem_pool) return nullptr;
+Result<std::unique_ptr<WritableRegion>> PmemTarget::create(size_t size) {
+    Result<std::unique_ptr<WritableRegion>> result;
+    if(!m_pmem_pool) {
+        result.success() = false;
+        result.error() = "Pmem pool has been destroyed";
+        return result;
+    }
     PMEMoid oid;
     int ret = pmemobj_alloc(m_pmem_pool, &oid, size + sizeof(size_t), 0, NULL, NULL);
     if(ret != 0) {
-        // TODO handle error properly
-        return nullptr;
+        result.success() = false;
+        result.error() = fmt::format("pmemobj_alloc failed: {}", pmemobj_errormsg());
+        return result;
     }
     RegionID regionID = PMEMoidToRegionID(oid);
     char* ptr = (char*)pmemobj_direct_inline(oid);
     std::memcpy(ptr, &size, sizeof(size));
     pmemobj_persist(m_pmem_pool, ptr, sizeof(size));
     char* regionPtr = ptr + sizeof(size);
-    return std::make_unique<PmemRegion>(m_engine, m_pmem_pool, regionID, regionPtr, size);
+    result.value() = std::make_unique<PmemRegion>(m_engine, m_pmem_pool, regionID, regionPtr, size);
+    return result;
 }
 
-std::unique_ptr<WritableRegion> PmemTarget::write(const RegionID& region_id, bool persist) {
+Result<std::unique_ptr<WritableRegion>> PmemTarget::write(const RegionID& region_id, bool persist) {
     (void)persist;
+    Result<std::unique_ptr<WritableRegion>> result;
     Result<PMEMoid> oid = RegionIDtoPMEMoid(region_id);
     if(!oid.success()) {
-        return nullptr;
+        result.success() = false;
+        result.error() = oid.error();
+        return result;
     }
     char* ptr = (char*)pmemobj_direct_inline(oid.value());
     size_t size = 0;
     std::memcpy(&size, ptr, sizeof(size));
     char* regionPtr = ptr + sizeof(size);
-    return std::make_unique<PmemRegion>(m_engine, m_pmem_pool, region_id, regionPtr, size);
+    result.value() = std::make_unique<PmemRegion>(m_engine, m_pmem_pool, region_id, regionPtr, size);
+    return result;
 }
 
-std::unique_ptr<ReadableRegion> PmemTarget::read(const RegionID& region_id) {
+Result<std::unique_ptr<ReadableRegion>> PmemTarget::read(const RegionID& region_id) {
     Result<PMEMoid> oid = RegionIDtoPMEMoid(region_id);
+    Result<std::unique_ptr<ReadableRegion>> result;
     if(!oid.success()) {
-        return nullptr;
+        result.success() = false;
+        result.error() = oid.error();
+        return result;
     }
     char* ptr = (char*)pmemobj_direct_inline(oid.value());
     size_t size = 0;
     std::memcpy(&size, ptr, sizeof(size));
     char* regionPtr = ptr + sizeof(size);
-    return std::make_unique<PmemRegion>(m_engine, m_pmem_pool, region_id, regionPtr, size);
+    result.value() = std::make_unique<PmemRegion>(m_engine, m_pmem_pool, region_id, regionPtr, size);
+    return result;
 }
 
 Result<bool> PmemTarget::erase(const RegionID& region_id) {
@@ -272,10 +287,12 @@ Result<bool> PmemTarget::erase(const RegionID& region_id) {
     return result;
 }
 
-std::unique_ptr<warabi::Backend> PmemTarget::create(const thallium::engine& engine, const json& config) {
+Result<std::unique_ptr<warabi::Backend>> PmemTarget::create(const thallium::engine& engine, const json& config) {
     const auto& path = config["path"].get_ref<const std::string&>();
     size_t create_if_missing_with_size = config.value("create_if_missing_with_size", 0);
     bool override_if_exists = config.value("override_if_exists", false);
+
+    Result<std::unique_ptr<warabi::Backend>> result;
 
     PMEMobjpool* pool = nullptr;
 
@@ -291,11 +308,15 @@ std::unique_ptr<warabi::Backend> PmemTarget::create(const thallium::engine& engi
         pool = pmemobj_open(path.c_str(), NULL);
     }
     if(!pool) {
-        std::cerr << pmemobj_errormsg() << std::endl;
-        return nullptr;
+        result.success() = false;
+        result.error() = fmt::format(
+            "Failed to create or open pmemobj target: {}",
+            pmemobj_errormsg());
+        return result;
     }
 
-    return std::make_unique<warabi::PmemTarget>(engine, config, pool);
+    result.value() = std::make_unique<warabi::PmemTarget>(engine, config, pool);
+    return result;
 }
 
 static constexpr const char* configSchema = R"(

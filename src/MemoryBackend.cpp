@@ -169,13 +169,15 @@ Result<bool> MemoryTarget::destroy() {
     return result;
 }
 
-std::unique_ptr<WritableRegion> MemoryTarget::create(size_t size) {
+Result<std::unique_ptr<WritableRegion>> MemoryTarget::create(size_t size) {
+    Result<std::unique_ptr<WritableRegion>> result;
     auto lock = std::unique_lock<thallium::mutex>{m_mutex};
     m_regions.emplace_back(size);
     auto& region = m_regions.back();
     size_t index = m_regions.size() - 1;
     auto region_id = RegionID(static_cast<void*>(&index), sizeof(index));
-    return std::make_unique<MemoryRegion>(m_engine, region_id, region, std::move(lock));
+    result.value() = std::make_unique<MemoryRegion>(m_engine, region_id, region, std::move(lock));
+    return result;
 }
 
 ssize_t MemoryTarget::regiondIDtoIndex(const RegionID& regionID) {
@@ -186,21 +188,41 @@ ssize_t MemoryTarget::regiondIDtoIndex(const RegionID& regionID) {
     return r;
 }
 
-std::unique_ptr<WritableRegion> MemoryTarget::write(const RegionID& region_id, bool persist) {
+Result<std::unique_ptr<WritableRegion>> MemoryTarget::write(const RegionID& region_id, bool persist) {
     (void)persist;
+    Result<std::unique_ptr<WritableRegion>> result;
     auto index = regiondIDtoIndex(region_id);
-    if(index < 0) return nullptr;
+    if(index < 0) {
+        result.error() = "Invalid RegionID information";
+        result.success() = false;
+        return result;
+    }
     auto lock = std::unique_lock<thallium::mutex>{m_mutex};
-    if(index >= (ssize_t)m_regions.size()) return nullptr;
-    return std::make_unique<MemoryRegion>(m_engine, region_id, m_regions[index], std::move(lock));
+    if(index >= (ssize_t)m_regions.size()) {
+        result.error() = "Invalid RegionID information";
+        result.success() = false;
+        return result;
+    }
+    result.value() = std::make_unique<MemoryRegion>(m_engine, region_id, m_regions[index], std::move(lock));
+    return result;
 }
 
-std::unique_ptr<ReadableRegion> MemoryTarget::read(const RegionID& region_id) {
+Result<std::unique_ptr<ReadableRegion>> MemoryTarget::read(const RegionID& region_id) {
+    Result<std::unique_ptr<ReadableRegion>> result;
     auto index = regiondIDtoIndex(region_id);
-    if(index < 0) return nullptr;
+    if(index < 0) {
+        result.error() = "Invalid RegionID information";
+        result.success() = false;
+        return result;
+    }
     auto lock = std::unique_lock<thallium::mutex>{m_mutex};
-    if(index >= (ssize_t)m_regions.size()) return nullptr;
-    return std::make_unique<MemoryRegion>(m_engine, region_id, m_regions[index], std::move(lock));
+    if(index >= (ssize_t)m_regions.size()) {
+        result.error() = "Invalid RegionID information";
+        result.success() = false;
+        return result;
+    }
+    result.value() = std::make_unique<MemoryRegion>(m_engine, region_id, m_regions[index], std::move(lock));
+    return result;
 }
 
 Result<bool> MemoryTarget::erase(const RegionID& region_id) {
@@ -216,8 +238,10 @@ Result<bool> MemoryTarget::erase(const RegionID& region_id) {
     return result;
 }
 
-std::unique_ptr<warabi::Backend> MemoryTarget::create(const thallium::engine& engine, const json& config) {
-    return std::unique_ptr<warabi::Backend>(new MemoryTarget(engine, config));
+Result<std::unique_ptr<warabi::Backend>> MemoryTarget::create(const thallium::engine& engine, const json& config) {
+    Result<std::unique_ptr<warabi::Backend>> result;
+    result.value() = std::unique_ptr<warabi::Backend>(new MemoryTarget(engine, config));
+    return result;
 }
 
 Result<bool> MemoryTarget::validate(const json& config) {

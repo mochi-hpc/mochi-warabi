@@ -167,19 +167,19 @@ class Backend {
      *
      * @return std::unique_ptr<WritableRegion>.
      */
-    virtual std::unique_ptr<WritableRegion> create(size_t size) = 0;
+    virtual Result<std::unique_ptr<WritableRegion>> create(size_t size) = 0;
 
     /**
      * @brief Request access to a particular region for writing.
      * If the region does not exist, returns a nullptr.
      */
-    virtual std::unique_ptr<WritableRegion> write(const RegionID& region, bool persist) = 0;
+    virtual Result<std::unique_ptr<WritableRegion>> write(const RegionID& region, bool persist) = 0;
 
     /**
      * @brief Request access to a particular region for reading.
      * If the region does not exist, returns a nullptr.
      */
-    virtual std::unique_ptr<ReadableRegion> read(const RegionID& region) = 0;
+    virtual Result<std::unique_ptr<ReadableRegion>> read(const RegionID& region) = 0;
 
     /**
      * @see TopicHandle::erase
@@ -222,9 +222,10 @@ class TargetFactory {
      *
      * @return a unique_ptr to the created Target.
      */
-    static std::unique_ptr<Backend> createTarget(const std::string& backend_name,
-                                                 const thallium::engine& engine,
-                                                 const json& config);
+    static Result<std::unique_ptr<Backend>>
+        createTarget(const std::string& backend_name,
+                     const thallium::engine& engine,
+                     const json& config);
 
     /**
      * @brief Validate that the JSON configuration has the expected schema.
@@ -247,7 +248,7 @@ class TargetFactory {
     private:
 
     std::unordered_map<std::string,
-        std::function<std::unique_ptr<Backend>(const thallium::engine&, const json&)>> create_fn;
+        std::function<Result<std::unique_ptr<Backend>>(const thallium::engine&, const json&)>> create_fn;
 
     std::unordered_map<std::string,
         std::function<Result<bool>(const json&)>> validate_fn;
@@ -271,8 +272,7 @@ class __WarabiBackendRegistration {
         warabi::TargetFactory::instance().create_fn[backend_name] =
             [backend_name](const thallium::engine& engine, const json& config) {
                 auto p = BackendType::create(engine, config);
-                if(!p) return (decltype(p))nullptr;
-                p->m_name = backend_name;
+                if(p.success()) p.value()->m_name = backend_name;
                 return p;
         };
         warabi::TargetFactory::instance().validate_fn[backend_name] =

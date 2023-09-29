@@ -4,6 +4,7 @@
  * See COPYRIGHT in top-level directory.
  */
 #include "warabi/Backend.hpp"
+#include <fmt/format.h>
 
 namespace tl = thallium;
 
@@ -11,11 +12,16 @@ namespace warabi {
 
 using json = nlohmann::json;
 
-std::unique_ptr<Backend> TargetFactory::createTarget(const std::string& backend_name,
-                                                     const tl::engine& engine,
-                                                     const json& config) {
+Result<std::unique_ptr<Backend>> TargetFactory::createTarget(const std::string& backend_name,
+                                                             const tl::engine& engine,
+                                                             const json& config) {
     auto it = instance().create_fn.find(backend_name);
-    if(it == instance().create_fn.end()) return nullptr;
+    if(it == instance().create_fn.end()) {
+        Result<std::unique_ptr<Backend>> result;
+        result.success() = false;
+        result.error() = fmt::format("Unknown target type \"{}\"", backend_name);
+        return result;
+    }
     auto& f = it->second;
     return f(engine, config);
 }

@@ -60,19 +60,19 @@ class PmemTarget : public warabi::Backend {
      *
      * @return std::unique_ptr<WritableRegion>.
      */
-    std::unique_ptr<WritableRegion> create(size_t size) override;
+    Result<std::unique_ptr<WritableRegion>> create(size_t size) override;
 
     /**
      * @brief Request access to a particular region for writing.
      * If the region does not exist, returns a nullptr.
      */
-    std::unique_ptr<WritableRegion> write(const RegionID& region, bool persist) override;
+    Result<std::unique_ptr<WritableRegion>> write(const RegionID& region, bool persist) override;
 
     /**
      * @brief Request access to a particular region for reading.
      * If the region does not exist, returns a nullptr.
      */
-    std::unique_ptr<ReadableRegion> read(const RegionID& region) override;
+    Result<std::unique_ptr<ReadableRegion>> read(const RegionID& region) override;
 
     /**
      * @see TopicHandle::erase
@@ -93,7 +93,7 @@ class PmemTarget : public warabi::Backend {
      *
      * @return a unique_ptr to a target
      */
-    static std::unique_ptr<warabi::Backend> create(const thallium::engine& engine, const json& config);
+    static Result<std::unique_ptr<warabi::Backend>> create(const thallium::engine& engine, const json& config);
 
     /**
      * @brief Validates that the configuration is correct for this backend.
