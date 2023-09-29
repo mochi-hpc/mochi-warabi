@@ -14,6 +14,7 @@
 TEST_CASE("Target test", "[target]") {
 
     auto target_type = GENERATE(as<std::string>{}, "memory", "pmdk");
+    CAPTURE(target_type);
     auto target_config = makeConfigForBackend(target_type);
 
     auto engine = thallium::engine("na+sm", THALLIUM_SERVER_MODE);
@@ -50,9 +51,15 @@ TEST_CASE("Target test", "[target]") {
         std::string addr = engine.self();
 
         auto th = client.makeTargetHandle(addr, 0, target_id);
+        th.setEagerReadThreshold(128);
+        th.setEagerWriteThreshold(128);
 
         SECTION("With blocking API") {
-            std::vector<char> in(64);
+
+            // testing both eager and bulk paths
+            auto data_size = GENERATE(64, 196);
+
+            std::vector<char> in(data_size);
             for(size_t i = 0; i < in.size(); ++i) in[i] = 'A' + (i % 26);
 
             /* create region */

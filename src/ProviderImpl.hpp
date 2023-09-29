@@ -14,6 +14,7 @@
 #include "warabi/Backend.hpp"
 #include "warabi/UUID.hpp"
 #include "warabi/TransferManager.hpp"
+#include "BufferWrapper.hpp"
 
 #include <thallium.hpp>
 #include <thallium/serialization/stl/string.hpp>
@@ -165,9 +166,12 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     AutoDeregistering m_check_target;
     AutoDeregistering m_create;
     AutoDeregistering m_write;
+    AutoDeregistering m_write_eager;
     AutoDeregistering m_persist;
     AutoDeregistering m_create_write;
+    AutoDeregistering m_create_write_eager;
     AutoDeregistering m_read;
+    AutoDeregistering m_read_eager;
     AutoDeregistering m_erase;
     AutoDeregistering m_get_size;
 
@@ -185,9 +189,12 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     , m_check_target(define("warabi_check_target", &ProviderImpl::checkTargetRPC, pool))
     , m_create(define("warabi_create",  &ProviderImpl::createRPC, pool))
     , m_write(define("warabi_write",  &ProviderImpl::writeRPC, pool))
+    , m_write_eager(define("warabi_write_eager",  &ProviderImpl::writeEagerRPC, pool))
     , m_persist(define("warabi_persist",  &ProviderImpl::persistRPC, pool))
     , m_create_write(define("warabi_create_write",  &ProviderImpl::createWriteRPC, pool))
+    , m_create_write_eager(define("warabi_create_write_eager",  &ProviderImpl::createWriteEagerRPC, pool))
     , m_read(define("warabi_read",  &ProviderImpl::readRPC, pool))
+    , m_read_eager(define("warabi_read_eager",  &ProviderImpl::readEagerRPC, pool))
     , m_erase(define("warabi_erase",  &ProviderImpl::eraseRPC, pool))
     , m_get_size(define("warabi_get_size",  &ProviderImpl::getSizeRPC, pool))
     {
@@ -455,6 +462,27 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         trace("Successfully executed write on target {}", target_id.to_string());
     }
 
+    void writeEagerRPC(const tl::request& req,
+                       const UUID& target_id,
+                       const RegionID& region_id,
+                       const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes,
+                       const BufferWrapper& buffer,
+                       bool persist) {
+        trace("Received write_eager request for target {}", target_id.to_string());
+        Result<bool> result;
+        AutoResponse<decltype(result)> response{req, result};
+        FIND_TARGET(target);
+        auto region = (*target)->write(region_id, persist);
+        if(!region.success()) {
+            result.success() = false;
+            result.error() = region.error();
+            return;
+        }
+        result = region.value()->write(regionOffsetSizes, buffer.data(), persist);
+        // TODO add TransferManager usage
+        trace("Successfully executed write_eager on target {}", target_id.to_string());
+    }
+
     void persistRPC(const tl::request& req,
                     const UUID& target_id,
                     const RegionID& region_id,
@@ -506,6 +534,31 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         trace("Successfully executed create_write on target {}", target_id.to_string());
     }
 
+    void createWriteEagerRPC(const tl::request& req,
+                             const UUID& target_id,
+                             const BufferWrapper& buffer,
+                             bool persist) {
+        trace("Received create_write_eager request for target {}", target_id.to_string());
+        Result<RegionID> result;
+        AutoResponse<decltype(result)> response{req, result};
+        FIND_TARGET(target);
+        auto region = (*target)->create(buffer.size());
+        if(!region.success()) {
+            result.success() = false;
+            result.error() = region.error();
+            return;
+        }
+        result = region.value()->getRegionID();
+        auto writeResult = region.value()->write(
+                {{0, buffer.size()}}, buffer.data(), persist);
+        // TODO use TransferManager
+        if(!writeResult.success()) {
+            result.success() = false;
+            result.error() = writeResult.error();
+        }
+        trace("Successfully executed create_write_eager on target {}", target_id.to_string());
+    }
+
     void readRPC(const tl::request& req,
                  const UUID& target_id,
                  const RegionID& region_id,
@@ -532,6 +585,31 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
                 regionOffsetSizes, data, source, bulkOffset);
         }
         trace("Successfully executed read on target {}", target_id.to_string());
+    }
+
+    void readEagerRPC(const tl::request& req,
+                      const UUID& target_id,
+                      const RegionID& region_id,
+                      const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes) {
+        trace("Received read_eager request for target {}", target_id.to_string());
+        Result<BufferWrapper> result;
+        AutoResponse<decltype(result)> response{req, result};
+        FIND_TARGET(target);
+        auto region = (*target)->read(region_id);
+        if(!region.value()) {
+            result.success() = false;
+            result.error() = region.error();
+            return;
+        }
+        size_t size = std::accumulate(regionOffsetSizes.begin(), regionOffsetSizes.end(), (size_t)0,
+                [](size_t acc, const std::pair<size_t, size_t>& p) { return acc + p.second; });
+        result.value().allocate(size);
+        auto ret = region.value()->read(regionOffsetSizes, result.value().data());
+        if(!ret.success()) {
+            result.success() = false;
+            result.error() = ret.error();
+        }
+        trace("Successfully executed read_eager on target {}", target_id.to_string());
     }
 
     void eraseRPC(const tl::request& req,

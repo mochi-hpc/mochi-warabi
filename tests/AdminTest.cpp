@@ -13,6 +13,7 @@
 TEST_CASE("Admin tests", "[admin]") {
 
     auto target_type = GENERATE(as<std::string>{}, "memory", "pmdk");
+    CAPTURE(target_type);
     auto target_config = makeConfigForBackend(target_type);
 
     auto engine = thallium::engine("na+sm", THALLIUM_SERVER_MODE);

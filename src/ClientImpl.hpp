@@ -23,9 +23,12 @@ class ClientImpl {
     tl::remote_procedure m_check_target;
     tl::remote_procedure m_create;
     tl::remote_procedure m_write;
+    tl::remote_procedure m_write_eager;
     tl::remote_procedure m_persist;
     tl::remote_procedure m_create_write;
+    tl::remote_procedure m_create_write_eager;
     tl::remote_procedure m_read;
+    tl::remote_procedure m_read_eager;
     tl::remote_procedure m_erase;
     tl::remote_procedure m_get_size;
 
@@ -34,9 +37,12 @@ class ClientImpl {
     , m_check_target(m_engine.define("warabi_check_target"))
     , m_create(m_engine.define("warabi_create"))
     , m_write(m_engine.define("warabi_write"))
+    , m_write_eager(m_engine.define("warabi_write_eager"))
     , m_persist(m_engine.define("warabi_persist"))
     , m_create_write(m_engine.define("warabi_create_write"))
+    , m_create_write_eager(m_engine.define("warabi_create_write_eager"))
     , m_read(m_engine.define("warabi_read"))
+    , m_read_eager(m_engine.define("warabi_read_eager"))
     , m_erase(m_engine.define("warabi_erase"))
     , m_get_size(m_engine.define("warabi_get_size"))
     {}

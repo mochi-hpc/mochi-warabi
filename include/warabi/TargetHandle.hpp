@@ -298,6 +298,18 @@ class TargetHandle {
     void getSize(const RegionID& region, size_t* size,
                  AsyncRequest* req = nullptr) const;
 
+    /**
+     * @brief Set the threshold for eager writes
+     * (default is 2048).
+     */
+    void setEagerWriteThreshold(size_t size);
+
+    /**
+     * @brief Set the threshold for eager reads
+     * (default is 2048).
+     */
+    void setEagerReadThreshold(size_t size);
+
     private:
 
     /**

@@ -18,6 +18,9 @@ class TargetHandleImpl {
     std::shared_ptr<ClientImpl> m_client;
     tl::provider_handle         m_ph;
 
+    size_t m_eager_write_threshold = 2048;
+    size_t m_eager_read_threshold = 2048;
+
     TargetHandleImpl() = default;
     
     TargetHandleImpl(const std::shared_ptr<ClientImpl>& client, 
