@@ -3,7 +3,8 @@ set (server-src-files
      Provider.cpp
      Backend.cpp
      MemoryBackend.cpp
-     PmemBackend.cpp)
+     PmemBackend.cpp
+     AbtIOBackend.cpp)
 
 set (client-src-files
      Client.cpp
@@ -29,7 +30,7 @@ set (warabi-vers "${WARABI_VERSION_MAJOR}.${WARABI_VERSION_MINOR}")
 add_library (warabi-server ${server-src-files} ${dummy-src-files})
 target_link_libraries (warabi-server
     PUBLIC thallium PkgConfig::uuid nlohmann_json::nlohmann_json
-    PRIVATE spdlog::spdlog fmt::fmt PkgConfig::libpmemobj stdc++fs coverage_config)
+    PRIVATE spdlog::spdlog fmt::fmt PkgConfig::libpmemobj PkgConfig::abt-io stdc++fs coverage_config)
 target_include_directories (warabi-server PUBLIC $<INSTALL_INTERFACE:include>)
 target_include_directories (warabi-server BEFORE PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>)

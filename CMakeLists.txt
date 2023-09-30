@@ -62,6 +62,8 @@ find_package (fmt REQUIRED)
 find_package (valijson REQUIRED)
 # search for libpmemobj
 pkg_check_modules (libpmemobj REQUIRED IMPORTED_TARGET libpmemobj)
+# search for abt-io
+pkg_check_modules (abt-io REQUIRED IMPORTED_TARGET abt-io)
 # search of bedrock if needed
 if (${ENABLE_BEDROCK})
     find_package (bedrock REQUIRED)

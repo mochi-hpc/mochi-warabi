@@ -9,7 +9,8 @@ spack:
   - spdlog
   - fmt
   - tclap
-  - mochi-bedrock
+  - mochi-bedrock +abtio
+  - mochi-abt-io
   - valijson
   concretizer:
     unify: true
