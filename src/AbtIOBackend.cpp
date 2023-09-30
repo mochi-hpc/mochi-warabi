@@ -24,17 +24,18 @@ namespace warabi {
 
 WARABI_REGISTER_BACKEND(abtio, AbtIOTarget);
 
-static inline RegionID OffsetToRegionID(const size_t offset) {
-    return RegionID{static_cast<const void*>(&offset), sizeof(offset)};
+static inline RegionID OffsetSizeToRegionID(const size_t offset, const size_t size) {
+    auto p = std::make_pair(offset, size);
+    return RegionID{static_cast<const void*>(&p), sizeof(p)};
 }
 
-static inline Result<size_t> RegionIDtoOffset(const RegionID& regionID) {
-    Result<size_t> result;
-    if(regionID.content[0] != sizeof(size_t)+1) {
+static inline Result<std::pair<size_t,size_t>> RegionIDtoOffsetSize(const RegionID& regionID) {
+    Result<std::pair<size_t,size_t>> result;
+    if(regionID.content[0] != sizeof(std::pair<size_t,size_t>)+1) {
         result.error() = "Invalid RegionID format";
         result.success() = false;
     } else {
-        std::memcpy(&result.value(), regionID.content+1, sizeof(size_t));
+        std::memcpy(static_cast<void*>(&result.value()), regionID.content+1, sizeof(std::pair<size_t,size_t>));
     }
     return result;
 }
@@ -67,20 +68,20 @@ struct AbtIORegion : public WritableRegion, public ReadableRegion {
             bool persist) override {
         (void)persist;
         Result<bool> result;
-#if 0
-        auto segments = convertToSegments(regionOffsetSizes);
-        if(!segments.success()) {
-            result.error() = segments.error();
+        void* data = nullptr;
+        size_t size = std::accumulate(
+            regionOffsetSizes.begin(), regionOffsetSizes.end(), (size_t)0,
+            [](size_t acc, const std::pair<size_t, size_t>& p) { return acc + p.second; });
+        int ret = posix_memalign((void**)(&data), m_owner->m_alignment, size);
+        if(ret != 0) {
+            result.error() = fmt::format("posix_memalign failed in write: {}", strerror(ret));
             result.success() = false;
             return result;
         }
-        if(segments.value().size() == 0) return result;
-        size_t totalSize = std::accumulate(
-            segments.value().begin(), segments.value().end(), (size_t)0,
-            [](size_t acc, const auto& pair) { return acc + pair.second; });
-        auto localBulk = m_engine.expose(segments.value(), thallium::bulk_mode::write_only);
-        localBulk << remoteBulk.on(address)(remoteBulkOffset, totalSize);
-#endif
+        auto localBulk = m_owner->m_engine.expose({{data, size}}, thallium::bulk_mode::write_only);
+        localBulk << remoteBulk.on(address)(remoteBulkOffset, size);
+        result = write(regionOffsetSizes, data, persist);
+        free(data);
         return result;
     }
 
@@ -89,47 +90,51 @@ struct AbtIORegion : public WritableRegion, public ReadableRegion {
             const void* data, bool persist) override {
         (void)persist;
         Result<bool> result;
-#if 0
-        auto segments = convertToSegments(regionOffsetSizes);
-        if(!segments.success()) {
-            result.error() = segments.error();
-            result.success() = false;
-            return result;
-        }
+        std::vector<abt_io_op*> ops(regionOffsetSizes.size());
+        std::vector<ssize_t> rets(regionOffsetSizes.size());
+
+        const char* ptr = static_cast<const char*>(data);
         size_t offset = 0;
-        const char* ptr = (const char*)data;
-        if(persist) {
-            for(auto& segment : segments.value()) {
-                pmemobj_memcpy_persist(m_pmem_pool, segment.first, ptr + offset, segment.second);
-                offset += segment.second;
-            }
-        } else {
-            for(auto& segment : segments.value()) {
-                std::memcpy(segment.first, ptr + offset, segment.second);
-                offset += segment.second;
+        int i = 0;
+        for(const auto& seg : regionOffsetSizes) {
+            abt_io_op* op = abt_io_pwrite_nb(
+                m_owner->m_abtio,
+                m_owner->m_fd,
+                ptr + offset,
+                seg.second,
+                m_region_offset + seg.first,
+                rets.data() + i);
+            ops[i] = op;
+            offset += seg.second;
+            i += 1;
+        }
+        int ret = 0;
+        for(auto& op : ops) {
+            ret = abt_io_op_wait(op);
+            abt_io_op_free(op);
+            if(ret != 0) {
+                result.success() = false;
+                result.error() = "Write failed (abt_io_op_wait returned -1)";
+                return result;
             }
         }
-#endif
+        ret = abt_io_fdatasync(m_owner->m_abtio, m_owner->m_fd);
+        if(ret != 0) {
+            result.success() = false;
+            result.error() = "Persist failed (abt_io_fdatasync returned -1)";
+        }
         return result;
     }
 
     Result<bool> persist(
             const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes) override {
+        (void)regionOffsetSizes;
         Result<bool> result;
-#if 0
-        for(size_t i=0; i < regionOffsetSizes.size(); ++i) {
-            if(regionOffsetSizes[i].first + regionOffsetSizes[i].second > m_region_size) {
-                result.success() = false;
-                result.error() = "Trying to access region outside of its bounds";
-                return result;
-            }
+        int ret = abt_io_fdatasync(m_owner->m_abtio, m_owner->m_fd);
+        if(ret != 0) {
+            result.success() = false;
+            result.error() = "Persist failed (abt_io_fdatasync returned -1)";
         }
-        for(size_t i=0; i < regionOffsetSizes.size(); ++i) {
-            if(regionOffsetSizes[i].second > 0) {
-                pmemobj_persist(m_pmem_pool, m_region_ptr + regionOffsetSizes[i].first, regionOffsetSizes[i].second);
-            }
-        }
-#endif
         return result;
     }
 
@@ -139,20 +144,24 @@ struct AbtIORegion : public WritableRegion, public ReadableRegion {
             const thallium::endpoint& address,
             size_t remoteBulkOffset) override {
         Result<bool> result;
-#if 0
-        auto segments = convertToSegments(regionOffsetSizes);
-        if(!segments.success()) {
-            result.error() = segments.error();
+        void* data = nullptr;
+        size_t size = std::accumulate(
+            regionOffsetSizes.begin(), regionOffsetSizes.end(), (size_t)0,
+            [](size_t acc, const std::pair<size_t, size_t>& p) { return acc + p.second; });
+        int ret = posix_memalign((void**)(&data), m_owner->m_alignment, size);
+        if(ret != 0) {
+            result.error() = fmt::format("posix_memalign failed in write: {}", strerror(ret));
             result.success() = false;
             return result;
         }
-        if(segments.value().size() == 0) return result;
-        size_t totalSize = std::accumulate(
-            segments.value().begin(), segments.value().end(), (size_t)0,
-            [](size_t acc, const auto& pair) { return acc + pair.second; });
-        auto localBulk = m_engine.expose(segments.value(), thallium::bulk_mode::read_only);
-        localBulk >> remoteBulk.on(address)(remoteBulkOffset, totalSize);
-#endif
+        result = read(regionOffsetSizes, data);
+        if(!result.success()) {
+            free(data);
+            return result;
+        }
+        auto localBulk = m_owner->m_engine.expose({{data, size}}, thallium::bulk_mode::read_only);
+        localBulk >> remoteBulk.on(address)(remoteBulkOffset, size);
+        free(data);
         return result;
      }
 
@@ -160,21 +169,34 @@ struct AbtIORegion : public WritableRegion, public ReadableRegion {
             const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes,
             void* data) override {
         Result<bool> result;
-#if 0
-        auto segments = convertToSegments(regionOffsetSizes);
-        if(!segments.success()) {
-            result.error() = segments.error();
-            result.success() = false;
-            return result;
-        }
-        if(segments.value().size() == 0) return result;
+        std::vector<abt_io_op*> ops(regionOffsetSizes.size());
+        std::vector<ssize_t> rets(regionOffsetSizes.size());
+
+        char* ptr = static_cast<char*>(data);
         size_t offset = 0;
-        char* ptr = (char*)data;
-        for(auto& segment : segments.value()) {
-            std::memcpy(ptr + offset, segment.first, segment.second);
-            offset += segment.second;
+        int i = 0;
+        for(const auto& seg : regionOffsetSizes) {
+            abt_io_op* op = abt_io_pread_nb(
+                m_owner->m_abtio,
+                m_owner->m_fd,
+                ptr + offset,
+                seg.second,
+                m_region_offset + seg.first,
+                rets.data() + i);
+            ops[i] = op;
+            offset += seg.second;
+            i += 1;
         }
-#endif
+        int ret = 0;
+        for(auto& op : ops) {
+            ret = abt_io_op_wait(op);
+            abt_io_op_free(op);
+            if(ret != 0) {
+                result.success() = false;
+                result.error() = "Read failed (abt_io_op_wait returned -1)";
+                return result;
+            }
+        }
         return result;
     }
 };
@@ -186,10 +208,13 @@ AbtIOTarget::AbtIOTarget(thallium::engine engine, const json& config,
 , m_abtio(abtio)
 , m_fd(fd)
 , m_file_size(file_size)
-, m_filename(config["path"].get_ref<const std::string&>()) {}
+, m_filename(config["path"].get_ref<const std::string&>())
+, m_alignment(config.value("alignment", 8))
+{}
 
 AbtIOTarget::~AbtIOTarget() {
-    if(m_fd) abt_io_close(m_abtio, m_fd);
+    if(m_fd && m_abtio) abt_io_close(m_abtio, m_fd);
+    if(m_abtio) abt_io_finalize(m_abtio);
 }
 
 std::string AbtIOTarget::getConfig() const {
@@ -200,13 +225,21 @@ Result<bool> AbtIOTarget::destroy() {
     Result<bool> result;
     if(m_fd) {
         abt_io_close(m_abtio, m_fd);
+        m_fd = 0;
         std::filesystem::remove(m_filename.c_str());
     } else {
         result.value() = false;
         result.error() = "Target already destroyed";
     }
+    if(m_abtio) {
+        abt_io_finalize(m_abtio);
+        m_abtio = nullptr;
+    }
     return result;
 }
+
+#define WARABI_ALIGN_UP(x, _alignment) \
+    ((((unsigned long)(x)) + (_alignment - 1)) & (~(_alignment - 1)))
 
 Result<std::unique_ptr<WritableRegion>> AbtIOTarget::create(size_t size) {
     Result<std::unique_ptr<WritableRegion>> result;
@@ -215,44 +248,72 @@ Result<std::unique_ptr<WritableRegion>> AbtIOTarget::create(size_t size) {
         result.error() = fmt::format("File {} has been destroyed", m_filename);
         return result;
     }
-    // TODO
-    //result.value() = std::make_unique<AbtIORegion>(m_engine, m_pmem_pool, regionID, regionPtr, size);
+    size_t alignedSize = WARABI_ALIGN_UP(size, m_alignment);
+    size_t offset = m_file_size.fetch_add(alignedSize);
+    auto regionID = OffsetSizeToRegionID(offset, alignedSize);
+    result.value() = std::make_unique<AbtIORegion>(this, regionID, offset);
     return result;
 }
 
 Result<std::unique_ptr<WritableRegion>> AbtIOTarget::write(const RegionID& region_id, bool persist) {
+    (void)persist;
     Result<std::unique_ptr<WritableRegion>> result;
     if(!m_fd) {
         result.success() = false;
         result.error() = fmt::format("File {} has been destroyed", m_filename);
         return result;
     }
-    // TODO
-    // result.value() = std::make_unique<AbtIORegion>(m_engine, m_pmem_pool, region_id, regionPtr, size);
+    auto regionOffsetSize = RegionIDtoOffsetSize(region_id);
+    if(!regionOffsetSize.success()) {
+        result.success() = false;
+        result.error() = regionOffsetSize.error();
+        return result;
+    }
+    result.value() = std::make_unique<AbtIORegion>(
+        this, region_id, regionOffsetSize.value().first);
     return result;
 }
 
 Result<std::unique_ptr<ReadableRegion>> AbtIOTarget::read(const RegionID& region_id) {
-    Result<size_t> regionOffset = RegionIDtoOffset(region_id);
     Result<std::unique_ptr<ReadableRegion>> result;
-    if(!regionOffset.success()) {
+    if(!m_fd) {
         result.success() = false;
-        result.error() = regionOffset.error();
+        result.error() = fmt::format("File {} has been destroyed", m_filename);
         return result;
     }
-    // TODO
-    //result.value() = std::make_unique<AbtIORegion>(m_engine, m_pmem_pool, region_id, regionPtr, size);
+    auto regionOffsetSize = RegionIDtoOffsetSize(region_id);
+    if(!regionOffsetSize.success()) {
+        result.success() = false;
+        result.error() = regionOffsetSize.error();
+        return result;
+    }
+    result.value() = std::make_unique<AbtIORegion>(
+        this, region_id, regionOffsetSize.value().first);
     return result;
 }
 
 Result<bool> AbtIOTarget::erase(const RegionID& region_id) {
-    Result<size_t> regionOffset = RegionIDtoOffset(region_id);
     Result<bool> result;
-    if(!regionOffset.success()) {
+    if(!m_fd) {
         result.success() = false;
-        result.error() = regionOffset.error();
+        result.error() = fmt::format("File {} has been destroyed", m_filename);
         return result;
     }
+    auto regionOffsetSize = RegionIDtoOffsetSize(region_id);
+    if(!regionOffsetSize.success()) {
+        result.success() = false;
+        result.error() = regionOffsetSize.error();
+        return result;
+    }
+    int ret = abt_io_fallocate(
+        m_abtio, m_fd,
+        FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
+        regionOffsetSize.value().first, regionOffsetSize.value().second);
+    if(ret != 0) {
+        result.error() = "abt_io_fallocate failed to erase region";
+        result.success() = false;
+    }
+
     return result;
 }
 
@@ -336,7 +397,7 @@ static constexpr const char* configSchema = R"(
     "path": {"type": "string"},
     "create_if_missing": {"type": "boolean"},
     "override_if_exists": {"type": "boolean"},
-    "alignment": {"type": "integer", "minimum": 0},
+    "alignment": {"type": "integer", "minimum": 8, "multipleOf": 8},
     "sync": {"type": "boolean"},
     "directio": {"type": "boolean"},
     "abt_io": {"type": "object"}

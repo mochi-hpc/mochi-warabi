@@ -13,7 +13,7 @@
 
 TEST_CASE("Target test", "[target]") {
 
-    auto target_type = GENERATE(as<std::string>{}, "memory", "pmdk");
+    auto target_type = GENERATE(as<std::string>{}, "memory", "pmdk", "abtio");
     CAPTURE(target_type);
     auto target_config = makeConfigForBackend(target_type);
 

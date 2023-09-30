@@ -24,7 +24,7 @@ class AbtIOTarget : public warabi::Backend {
     json                           m_config;
     abt_io_instance_id             m_abtio;
     int                            m_fd;
-    size_t                         m_file_size;
+    std::atomic<size_t>            m_file_size;
     std::string                    m_filename;
     bool                           m_sync;
     size_t                         m_alignment;
