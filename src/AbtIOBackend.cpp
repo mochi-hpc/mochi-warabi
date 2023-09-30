@@ -115,9 +115,18 @@ struct AbtIORegion : public WritableRegion, public ReadableRegion {
             if(ret != 0) {
                 result.success() = false;
                 result.error() = "Write failed (abt_io_op_wait returned -1)";
-                return result;
             }
         }
+        if(!result.success())
+            return result;
+        for(auto& r : rets) {
+            if(r < 0) {
+                result.success() = false;
+                result.error() = fmt::format("Read failed: {}", strerror(-r));
+            }
+        }
+        if(!result.success())
+            return result;
         if(persist) {
             ret = abt_io_fdatasync(m_owner->m_abtio, m_owner->m_fd);
             if(ret != 0) {
@@ -196,7 +205,14 @@ struct AbtIORegion : public WritableRegion, public ReadableRegion {
             if(ret != 0) {
                 result.success() = false;
                 result.error() = "Read failed (abt_io_op_wait returned -1)";
-                return result;
+            }
+        }
+        if(!result.success())
+            return result;
+        for(auto& r : rets) {
+            if(r < 0) {
+                result.success() = false;
+                result.error() = fmt::format("Read failed: {}", strerror(-r));
             }
         }
         return result;
