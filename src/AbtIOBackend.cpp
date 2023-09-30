@@ -118,10 +118,12 @@ struct AbtIORegion : public WritableRegion, public ReadableRegion {
                 return result;
             }
         }
-        ret = abt_io_fdatasync(m_owner->m_abtio, m_owner->m_fd);
-        if(ret != 0) {
-            result.success() = false;
-            result.error() = "Persist failed (abt_io_fdatasync returned -1)";
+        if(persist) {
+            ret = abt_io_fdatasync(m_owner->m_abtio, m_owner->m_fd);
+            if(ret != 0) {
+                result.success() = false;
+                result.error() = "Persist failed (abt_io_fdatasync returned -1)";
+            }
         }
         return result;
     }
@@ -251,6 +253,20 @@ Result<std::unique_ptr<WritableRegion>> AbtIOTarget::create(size_t size) {
     size_t alignedSize = WARABI_ALIGN_UP(size, m_alignment);
     size_t offset = m_file_size.fetch_add(alignedSize);
     auto regionID = OffsetSizeToRegionID(offset, alignedSize);
+
+    void* zero_block = nullptr;
+    int ret = posix_memalign((void**)(&zero_block), m_alignment, size);
+    if(ret != 0) {
+        result.error() = fmt::format("posix_memalign failed in create: {}", strerror(ret));
+        result.success() = false;
+        return result;
+    }
+    ssize_t s = abt_io_pwrite(m_abtio, m_fd, zero_block, alignedSize, offset);
+    if(s != (ssize_t)alignedSize) {
+        result.error() = fmt::format("abt_io_pwrite failed in create: {}", strerror(-s));
+        result.success() = false;
+        return result;
+    }
     result.value() = std::make_unique<AbtIORegion>(this, regionID, offset);
     return result;
 }
@@ -321,7 +337,7 @@ Result<std::unique_ptr<warabi::Backend>> AbtIOTarget::create(const thallium::eng
     auto config              = cfg;
     const auto& path         = config["path"].get_ref<const std::string&>();
     bool override_if_exists  = config.value("override_if_exists", false);
-    bool directio            = config.value("directio", true);
+    bool directio            = config.value("directio", false);
     abt_io_instance_id abtio = ABT_IO_INSTANCE_NULL;
 
     Result<std::unique_ptr<warabi::Backend>> result;
@@ -354,6 +370,7 @@ Result<std::unique_ptr<warabi::Backend>> AbtIOTarget::create(const thallium::eng
         if(!fd) {
             result.success() = false;
             result.error() = fmt::format("Could not open file {}: {}", path, strerror(errno));
+            abt_io_finalize(abtio);
             return result;
         }
         close(fd);
@@ -365,6 +382,7 @@ retry_without_odirect:
     if(fd == -EINVAL && directio) {
         oflags = O_RDWR;
         config["directio"] = false;
+        directio = false;
         goto retry_without_odirect;
     }
 

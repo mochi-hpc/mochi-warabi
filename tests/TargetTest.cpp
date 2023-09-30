@@ -58,6 +58,7 @@ TEST_CASE("Target test", "[target]") {
 
             // testing both eager and bulk paths
             auto data_size = GENERATE(64, 196);
+            CAPTURE(data_size);
 
             std::vector<char> in(data_size);
             for(size_t i = 0; i < in.size(); ++i) in[i] = 'A' + (i % 26);
