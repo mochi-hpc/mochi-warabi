@@ -22,7 +22,7 @@
 
 namespace warabi {
 
-WARABI_REGISTER_BACKEND(pmdk, AbtIOTarget);
+WARABI_REGISTER_BACKEND(abtio, AbtIOTarget);
 
 static inline RegionID OffsetToRegionID(const size_t offset) {
     return RegionID{static_cast<const void*>(&offset), sizeof(offset)};
@@ -44,27 +44,18 @@ struct AbtIORegion : public WritableRegion, public ReadableRegion {
     AbtIORegion(
             AbtIOTarget* owner,
             RegionID id,
-            size_t regionOffset,
-            size_t regionSize)
+            size_t regionOffset)
     : m_owner(owner)
     , m_id(std::move(id))
-    , m_region_offset(regionOffset)
-    , m_region_size(regionSize) {}
+    , m_region_offset(regionOffset) {}
 
     AbtIOTarget*     m_owner;
     RegionID         m_id;
     size_t           m_region_offset;
-    size_t           m_region_size;
 
     Result<RegionID> getRegionID() override {
         Result<RegionID> result;
         result.value() = m_id;
-        return result;
-    }
-
-    Result<size_t> getSize() override {
-        Result<size_t> result;
-        result.value() = m_region_size;
         return result;
     }
 

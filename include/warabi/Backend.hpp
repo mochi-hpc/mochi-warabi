@@ -38,11 +38,6 @@ class Region {
      * @brief Return the RegionID of the region.
      */
     virtual Result<RegionID> getRegionID() = 0;
-
-    /**
-     * @see TopicHandle::getSize
-     */
-    virtual Result<size_t> getSize() = 0;
 };
 
 class WritableRegion : public Region {

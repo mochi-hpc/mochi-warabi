@@ -289,16 +289,6 @@ class TargetHandle {
                AsyncRequest* req = nullptr) const;
 
     /**
-     * @brief Get the size of the region.
-     *
-     * @param[in] region RegionID.
-     * @param[in] size Size of the region.
-     * @param[out] req Optional request to make the call asynchronous.
-     */
-    void getSize(const RegionID& region, size_t* size,
-                 AsyncRequest* req = nullptr) const;
-
-    /**
      * @brief Set the threshold for eager writes
      * (default is 2048).
      */

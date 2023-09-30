@@ -66,11 +66,6 @@ TEST_CASE("Target test", "[target]") {
             warabi::RegionID regionID;
             REQUIRE_NOTHROW(th.create(&regionID, in.size()));
 
-            /* check the size of the region */
-            size_t regionSize = 0;
-            REQUIRE_NOTHROW(th.getSize(regionID, &regionSize));
-            REQUIRE(regionSize == in.size());
-
             /* write into the region */
             REQUIRE_NOTHROW(th.write(regionID, 0, in.data(), in.size()));
 

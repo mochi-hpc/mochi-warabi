@@ -37,19 +37,16 @@ struct PmemRegion : public WritableRegion, public ReadableRegion {
             thallium::engine engine,
             PMEMobjpool* pool,
             RegionID id,
-            char* regionPtr,
-            size_t regionSize)
+            char* regionPtr)
     : m_engine(std::move(engine))
     , m_pmem_pool(pool)
     , m_id(std::move(id))
-    , m_region_ptr(regionPtr)
-    , m_region_size(regionSize) {}
+    , m_region_ptr(regionPtr) {}
 
     thallium::engine m_engine;
     PMEMobjpool*     m_pmem_pool;
     RegionID         m_id;
     char*            m_region_ptr;
-    size_t           m_region_size;
 
     Result<std::vector<std::pair<void*, size_t>>> convertToSegments(
         const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes) {
@@ -58,11 +55,6 @@ struct PmemRegion : public WritableRegion, public ReadableRegion {
         segments.reserve(regionOffsetSizes.size());
         for(size_t i=0; i < regionOffsetSizes.size(); ++i) {
             if(regionOffsetSizes[i].second == 0) continue;
-            if(regionOffsetSizes[i].first + regionOffsetSizes[i].second > m_region_size) {
-                result.success() = false;
-                result.error() = "Trying to access region outside of its bounds";
-                return result;
-            }
             segments.push_back({m_region_ptr + regionOffsetSizes[i].first,
                                 regionOffsetSizes[i].second});
         }
@@ -72,12 +64,6 @@ struct PmemRegion : public WritableRegion, public ReadableRegion {
     Result<RegionID> getRegionID() override {
         Result<RegionID> result;
         result.value() = m_id;
-        return result;
-    }
-
-    Result<size_t> getSize() override {
-        Result<size_t> result;
-        result.value() = m_region_size;
         return result;
     }
 
@@ -134,13 +120,6 @@ struct PmemRegion : public WritableRegion, public ReadableRegion {
     Result<bool> persist(
             const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes) override {
         Result<bool> result;
-        for(size_t i=0; i < regionOffsetSizes.size(); ++i) {
-            if(regionOffsetSizes[i].first + regionOffsetSizes[i].second > m_region_size) {
-                result.success() = false;
-                result.error() = "Trying to access region outside of its bounds";
-                return result;
-            }
-        }
         for(size_t i=0; i < regionOffsetSizes.size(); ++i) {
             if(regionOffsetSizes[i].second > 0) {
                 pmemobj_persist(m_pmem_pool, m_region_ptr + regionOffsetSizes[i].first, regionOffsetSizes[i].second);
@@ -227,7 +206,7 @@ Result<std::unique_ptr<WritableRegion>> PmemTarget::create(size_t size) {
         return result;
     }
     PMEMoid oid;
-    int ret = pmemobj_alloc(m_pmem_pool, &oid, size + sizeof(size_t), 0, NULL, NULL);
+    int ret = pmemobj_alloc(m_pmem_pool, &oid, size, 0, NULL, NULL);
     if(ret != 0) {
         result.success() = false;
         result.error() = fmt::format("pmemobj_alloc failed: {}", pmemobj_errormsg());
@@ -235,10 +214,7 @@ Result<std::unique_ptr<WritableRegion>> PmemTarget::create(size_t size) {
     }
     RegionID regionID = PMEMoidToRegionID(oid);
     char* ptr = (char*)pmemobj_direct_inline(oid);
-    std::memcpy(ptr, &size, sizeof(size));
-    pmemobj_persist(m_pmem_pool, ptr, sizeof(size));
-    char* regionPtr = ptr + sizeof(size);
-    result.value() = std::make_unique<PmemRegion>(m_engine, m_pmem_pool, regionID, regionPtr, size);
+    result.value() = std::make_unique<PmemRegion>(m_engine, m_pmem_pool, regionID, ptr);
     return result;
 }
 
@@ -252,10 +228,7 @@ Result<std::unique_ptr<WritableRegion>> PmemTarget::write(const RegionID& region
         return result;
     }
     char* ptr = (char*)pmemobj_direct_inline(oid.value());
-    size_t size = 0;
-    std::memcpy(&size, ptr, sizeof(size));
-    char* regionPtr = ptr + sizeof(size);
-    result.value() = std::make_unique<PmemRegion>(m_engine, m_pmem_pool, region_id, regionPtr, size);
+    result.value() = std::make_unique<PmemRegion>(m_engine, m_pmem_pool, region_id, ptr);
     return result;
 }
 
@@ -268,10 +241,7 @@ Result<std::unique_ptr<ReadableRegion>> PmemTarget::read(const RegionID& region_
         return result;
     }
     char* ptr = (char*)pmemobj_direct_inline(oid.value());
-    size_t size = 0;
-    std::memcpy(&size, ptr, sizeof(size));
-    char* regionPtr = ptr + sizeof(size);
-    result.value() = std::make_unique<PmemRegion>(m_engine, m_pmem_pool, region_id, regionPtr, size);
+    result.value() = std::make_unique<PmemRegion>(m_engine, m_pmem_pool, region_id, ptr);
     return result;
 }
 

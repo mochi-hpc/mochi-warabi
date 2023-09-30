@@ -51,12 +51,6 @@ struct MemoryRegion : public WritableRegion, public ReadableRegion {
         return result;
     }
 
-    Result<size_t> getSize() override {
-        Result<size_t> result;
-        result.value() = m_region.size();
-        return result;
-    }
-
     Result<bool> write(
             const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes,
             thallium::bulk remoteBulk,

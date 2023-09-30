@@ -173,7 +173,6 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     AutoDeregistering m_read;
     AutoDeregistering m_read_eager;
     AutoDeregistering m_erase;
-    AutoDeregistering m_get_size;
 
     // Backends
     std::unordered_map<UUID, std::shared_ptr<TargetEntry>> m_targets;
@@ -196,7 +195,6 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     , m_read(define("warabi_read",  &ProviderImpl::readRPC, pool))
     , m_read_eager(define("warabi_read_eager",  &ProviderImpl::readEagerRPC, pool))
     , m_erase(define("warabi_erase",  &ProviderImpl::eraseRPC, pool))
-    , m_get_size(define("warabi_get_size",  &ProviderImpl::getSizeRPC, pool))
     {
         trace("Registered provider with id {}", get_provider_id());
         json json_config;
@@ -621,23 +619,6 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         FIND_TARGET(target);
         result = (*target)->erase(region_id);
         trace("Successfully executed erase on target {}", target_id.to_string());
-    }
-
-    void getSizeRPC(const tl::request& req,
-                    const UUID& target_id,
-                    const RegionID& region_id) {
-        trace("Received get_size request for target {}", target_id.to_string());
-        Result<size_t> result;
-        AutoResponse<decltype(result)> response{req, result};
-        FIND_TARGET(target);
-        auto region = (*target)->read(region_id);
-        if(!region.success()) {
-            result.success() = false;
-            result.error() = region.error();
-            return;
-        }
-        result = region.value()->getSize();
-        trace("Successfully executed read on target {}", target_id.to_string());
     }
 
 };

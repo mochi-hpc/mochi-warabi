@@ -30,7 +30,6 @@ class ClientImpl {
     tl::remote_procedure m_read;
     tl::remote_procedure m_read_eager;
     tl::remote_procedure m_erase;
-    tl::remote_procedure m_get_size;
 
     ClientImpl(const tl::engine& engine)
     : m_engine(engine)
@@ -44,7 +43,6 @@ class ClientImpl {
     , m_read(m_engine.define("warabi_read"))
     , m_read_eager(m_engine.define("warabi_read_eager"))
     , m_erase(m_engine.define("warabi_erase"))
-    , m_get_size(m_engine.define("warabi_get_size"))
     {}
 
     ClientImpl(margo_instance_id mid)
