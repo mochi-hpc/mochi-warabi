@@ -1,4 +1,4 @@
-# (C) 2020 The University of Chicago
+# (C) 2023 The University of Chicago
 # See COPYRIGHT in top-level directory.
 cmake_minimum_required (VERSION 3.8)
 project (warabi C CXX)
