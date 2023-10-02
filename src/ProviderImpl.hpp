@@ -156,7 +156,6 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     public:
 
     tl::engine           m_engine;
-    std::string          m_token;
     tl::pool             m_pool;
     // Admin RPC
     AutoDeregistering m_add_target;
@@ -321,7 +320,6 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     }
 
     void addTargetRPC(const tl::request& req,
-                      const std::string& token,
                       const std::string& target_type,
                       const std::string& target_config) {
 
@@ -332,31 +330,16 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         Result<UUID> result;
         AutoResponse<decltype(result)> response{req, result};
 
-        if(m_token.size() > 0 && m_token != token) {
-            result.success() = false;
-            result.error() = "Invalid security token";
-            error("Invalid security token {}", token);
-            return;
-        }
-
         result = addTarget(target_type, target_config);
     }
 
     void removeTargetRPC(const tl::request& req,
-                         const std::string& token,
                          const UUID& target_id) {
         trace("Received removeTarget request for target {}",
               target_id.to_string());
 
         Result<bool> result;
         AutoResponse<decltype(result)> response{req, result};
-
-        if(m_token.size() > 0 && m_token != token) {
-            result.success() = false;
-            result.error() = "Invalid security token";
-            error("Invalid security token {}", token);
-            return;
-        }
 
         {
             std::lock_guard<tl::mutex> lock(m_targets_mtx);
@@ -375,18 +358,10 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     }
 
     void destroyTargetRPC(const tl::request& req,
-                          const std::string& token,
                           const UUID& target_id) {
         Result<bool> result;
         AutoResponse<decltype(result)> response{req, result};
         trace("Received destroyTarget request for target {}", target_id.to_string());
-
-        if(m_token.size() > 0 && m_token != token) {
-            result.success() = false;
-            result.error() = "Invalid security token";
-            error("Invalid security token {}", token);
-            return;
-        }
 
         {
             std::lock_guard<tl::mutex> lock(m_targets_mtx);

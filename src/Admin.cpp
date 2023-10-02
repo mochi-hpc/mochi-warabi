@@ -41,31 +41,28 @@ Admin::operator bool() const {
 UUID Admin::addTarget(const std::string& address,
                       uint16_t provider_id,
                       const std::string& target_type,
-                      const std::string& target_config,
-                      const std::string& token) const {
+                      const std::string& target_config) const {
     auto endpoint  = self->m_engine.lookup(address);
     auto ph        = tl::provider_handle(endpoint, provider_id);
-    Result<UUID> result = self->m_add_target.on(ph)(token, target_type, target_config);
+    Result<UUID> result = self->m_add_target.on(ph)(target_type, target_config);
     return std::move(result).valueOrThrow();
 }
 
 void Admin::removeTarget(const std::string& address,
                          uint16_t provider_id,
-                         const UUID& target_id,
-                         const std::string& token) const {
+                         const UUID& target_id) const {
     auto endpoint  = self->m_engine.lookup(address);
     auto ph        = tl::provider_handle(endpoint, provider_id);
-    Result<bool> result = self->m_remove_target.on(ph)(token, target_id);
+    Result<bool> result = self->m_remove_target.on(ph)(target_id);
     result.check();
 }
 
 void Admin::destroyTarget(const std::string& address,
                           uint16_t provider_id,
-                          const UUID& target_id,
-                          const std::string& token) const {
+                          const UUID& target_id) const {
     auto endpoint  = self->m_engine.lookup(address);
     auto ph        = tl::provider_handle(endpoint, provider_id);
-    Result<bool> result = self->m_destroy_target.on(ph)(token, target_id);
+    Result<bool> result = self->m_destroy_target.on(ph)(target_id);
     result.check();
 }
 

@@ -75,14 +75,6 @@ class Provider {
     ~Provider();
 
     /**
-     * @brief Sets a security string that should be provided
-     * by Admin RPCs to accept them.
-     *
-     * @param token Security token to set.
-     */
-    void setSecurityToken(const std::string& token);
-
-    /**
      * @brief Return a JSON-formatted configuration of the provider.
      *
      * @return JSON formatted string.

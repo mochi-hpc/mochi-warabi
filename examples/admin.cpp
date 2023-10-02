@@ -16,7 +16,6 @@ static std::string g_protocol;
 static std::string g_target;
 static std::string g_type;
 static std::string g_config;
-static std::string g_token;
 static std::string g_operation;
 static unsigned    g_provider_id;
 static std::string g_log_level = "info";
@@ -37,15 +36,15 @@ int main(int argc, char** argv) {
 
         if(g_operation == "add") {
             auto id = admin.addTarget(g_address, g_provider_id,
-                g_type, g_config, g_token);
+                g_type, g_config);
             spdlog::info("Added target {}", id.to_string());
         } else if(g_operation == "remove") {
             admin.removeTarget(g_address, g_provider_id,
-                warabi::UUID::from_string(g_target.c_str()), g_token);
+                warabi::UUID::from_string(g_target.c_str()));
             spdlog::info("Removed target {}", g_target);
         } else if(g_operation == "destroy") {
             admin.destroyTarget(g_address, g_provider_id,
-                warabi::UUID::from_string(g_target.c_str()), g_token);
+                warabi::UUID::from_string(g_target.c_str()));
             spdlog::info("Destroyed target {}", g_target);
         }
 
@@ -63,7 +62,6 @@ void parse_command_line(int argc, char** argv) {
         TCLAP::CmdLine cmd("Warabi admin", ' ', "0.1");
         TCLAP::ValueArg<std::string> addressArg("a","address","Address or server", true,"","string");
         TCLAP::ValueArg<unsigned>    providerArg("p", "provider", "Provider id to contact (default 0)", false, 0, "int");
-        TCLAP::ValueArg<std::string> tokenArg("s","token","Security token", false,"","string");
         TCLAP::ValueArg<std::string> typeArg("t","type","Target type", false,"memory","string");
         TCLAP::ValueArg<std::string> targetArg("r","target","Target id", false, warabi::UUID().to_string(),"string");
         TCLAP::ValueArg<std::string> configArg("c","config","Target configuration", false,"","string");
@@ -74,7 +72,6 @@ void parse_command_line(int argc, char** argv) {
         cmd.add(addressArg);
         cmd.add(providerArg);
         cmd.add(typeArg);
-        cmd.add(tokenArg);
         cmd.add(configArg);
         cmd.add(targetArg);
         cmd.add(logLevel);
@@ -82,7 +79,6 @@ void parse_command_line(int argc, char** argv) {
         cmd.parse(argc, argv);
         g_address = addressArg.getValue();
         g_provider_id = providerArg.getValue();
-        g_token = tokenArg.getValue();
         g_config = configArg.getValue();
         g_type = typeArg.getValue();
         g_target = targetArg.getValue();

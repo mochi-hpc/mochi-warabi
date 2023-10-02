@@ -94,8 +94,7 @@ class Admin {
     UUID addTarget(const std::string& address,
                    uint16_t provider_id,
                    const std::string& type,
-                   const std::string& config,
-                   const std::string& token="") const;
+                   const std::string& config) const;
 
     /**
      * @brief Adds a target on the target provider.
@@ -110,9 +109,8 @@ class Admin {
     UUID addTarget(const std::string& address,
                    uint16_t provider_id,
                    const std::string& type,
-                   const char* config,
-                   const std::string& token="") const {
-        return addTarget(address, provider_id, type, std::string(config), token);
+                   const char* config) const {
+        return addTarget(address, provider_id, type, std::string(config));
     }
 
     /**
@@ -128,9 +126,8 @@ class Admin {
     UUID addTarget(const std::string& address,
                       uint16_t provider_id,
                       const std::string& type,
-                      const json& config,
-                      const std::string& token="") const {
-        return addTarget(address, provider_id, type, config.dump(), token);
+                      const json& config) const {
+        return addTarget(address, provider_id, type, config.dump());
     }
 
     /**
@@ -142,8 +139,7 @@ class Admin {
      */
     void removeTarget(const std::string& address,
                       uint16_t provider_id,
-                      const UUID& target_id,
-                      const std::string& token="") const;
+                      const UUID& target_id) const;
 
     /**
      * @brief Destroys an open target in the target provider.
@@ -154,8 +150,7 @@ class Admin {
      */
     void destroyTarget(const std::string& address,
                        uint16_t provider_id,
-                       const UUID& target_id,
-                       const std::string& token="") const;
+                       const UUID& target_id) const;
 
     private:
 
