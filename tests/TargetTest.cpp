@@ -87,5 +87,48 @@ TEST_CASE("Target test", "[target]") {
             REQUIRE_NOTHROW(th.read(regionID, 0, out.data(), out.size()));
             REQUIRE(std::memcmp(in.data(), out.data(), in.size()) == 0);
         }
+
+        SECTION("With non-blocking API") {
+
+            // testing both eager and bulk paths
+            auto data_size = GENERATE(64, 196);
+            CAPTURE(data_size);
+
+            std::vector<char> in(data_size);
+            for(size_t i = 0; i < in.size(); ++i) in[i] = 'A' + (i % 26);
+
+            warabi::AsyncRequest req;
+
+            /* create region */
+            warabi::RegionID regionID;
+            REQUIRE_NOTHROW(th.create(&regionID, in.size(), &req));
+            req.completed(); // called for code coverage
+            REQUIRE_NOTHROW(req.wait());
+
+            /* write into the region */
+            REQUIRE_NOTHROW(th.write(regionID, 0, in.data(), in.size(), false, &req));
+            REQUIRE_NOTHROW(req.wait());
+
+            /* persist the region */
+            REQUIRE_NOTHROW(th.persist(regionID, 0, in.size(), &req));
+            REQUIRE_NOTHROW(req.wait());
+
+            /* read the data */
+            std::vector<char> out(in.size());
+            REQUIRE_NOTHROW(th.read(regionID, 0, out.data(), out.size(), &req));
+            REQUIRE_NOTHROW(req.wait());
+            REQUIRE(std::memcmp(in.data(), out.data(), in.size()) == 0);
+
+            for(size_t i = 0; i < in.size(); ++i) in[i] = 'a' + (i % 26);
+
+            /* use createWrite */
+            REQUIRE_NOTHROW(th.createAndWrite(&regionID, in.data(), in.size(), true, &req));
+            REQUIRE_NOTHROW(req.wait());
+
+            /* read the second region */
+            REQUIRE_NOTHROW(th.read(regionID, 0, out.data(), out.size(), &req));
+            REQUIRE_NOTHROW(req.wait());
+            REQUIRE(std::memcmp(in.data(), out.data(), in.size()) == 0);
+        }
     }
 }
