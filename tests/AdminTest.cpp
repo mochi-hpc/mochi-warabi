@@ -27,7 +27,11 @@ TEST_CASE("Admin tests", "[admin]") {
 
         SECTION("Create and destroy targets") {
             /* correct target creation */
-            warabi::UUID target_id = admin.addTarget(addr, 0, target_type, target_config);
+            warabi::UUID target_id;
+            warabi::UUID bad_id;
+            REQUIRE_NOTHROW([&]() {
+                target_id = admin.addTarget(addr, 0, target_type, target_config);
+            }());
 
             /* target creation with a bad target type */
             REQUIRE_THROWS_AS(admin.addTarget(addr, 0, "blabla", target_config),
@@ -37,11 +41,21 @@ TEST_CASE("Admin tests", "[admin]") {
             REQUIRE_THROWS_AS(admin.addTarget(addr, 0, target_type, "{["),
                               warabi::Exception);
 
+            /* target removal */
+            REQUIRE_NOTHROW(admin.removeTarget(addr, 0, target_id));
+
+            /* target removal with invalid id */
+            REQUIRE_THROWS_AS(admin.removeTarget(addr, 0, bad_id), warabi::Exception);
+
+            /* re-add the target so we can destroy it */
+            REQUIRE_NOTHROW([&]() {
+                target_id = admin.addTarget(addr, 0, target_type, target_config);
+            }());
+
             /* correctly destroy target */
-            admin.destroyTarget(addr, 0, target_id);
+            REQUIRE_NOTHROW(admin.destroyTarget(addr, 0, target_id));
 
             /* destroy a target with an ID that does not exist */
-            warabi::UUID bad_id;
             REQUIRE_THROWS_AS(admin.destroyTarget(addr, 0, bad_id), warabi::Exception);
         }
     }
