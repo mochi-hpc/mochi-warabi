@@ -69,9 +69,4 @@ void Admin::destroyTarget(const std::string& address,
     result.check();
 }
 
-void Admin::shutdownServer(const std::string& address) const {
-    auto ep = self->m_engine.lookup(address);
-    self->m_engine.shutdown_remote_engine(ep);
-}
-
 }

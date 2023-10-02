@@ -157,14 +157,6 @@ class Admin {
                        const UUID& target_id,
                        const std::string& token="") const;
 
-    /**
-     * @brief Shuts down the target server. The Thallium engine
-     * used by the server must have remote shutdown enabled.
-     *
-     * @param address Address of the server to shut down.
-     */
-    void shutdownServer(const std::string& address) const;
-
     private:
 
     std::shared_ptr<AdminImpl> self;
