@@ -2,6 +2,8 @@
 set (server-src-files
      Provider.cpp
      Backend.cpp
+     TransferManager.cpp
+     DefaultTransferManager.cpp
      MemoryBackend.cpp
      PmemBackend.cpp
      AbtIOBackend.cpp)

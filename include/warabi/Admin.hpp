@@ -152,6 +152,60 @@ class Admin {
                        uint16_t provider_id,
                        const UUID& target_id) const;
 
+    /**
+     * @brief Adds a TransferManager on the target provider.
+     * The config string must be a JSON object acceptable
+     * by the desired transfer manager's creation function.
+     *
+     * @param address Address of the target provider.
+     * @param provider_id Provider id.
+     * @param name Name to give to the TransferManager.
+     * @param type Type of the target to create.
+     * @param config JSON configuration for the transfer manager.
+     */
+    void addTransferManager(const std::string& address,
+                            uint16_t provider_id,
+                            const std::string& name,
+                            const std::string& type,
+                            const std::string& config) const;
+
+    /**
+     * @brief Adds a TransferManager on the target provider.
+     * The config string must be a JSON object acceptable
+     * by the desired transer manager's creation function.
+     *
+     * @param address Address of the target provider.
+     * @param provider_id Provider id.
+     * @param type Type of the target to create.
+     * @param config JSON configuration for the transfer manager.
+     */
+    void addTransferManager(const std::string& address,
+                            uint16_t provider_id,
+                            const std::string& name,
+                            const std::string& type,
+                            const char* config) const {
+        return addTransferManager(address, provider_id, name, type, std::string(config));
+    }
+
+    /**
+     * @brief Adds a TransferManager on the target provider.
+     * The config object must be a JSON object acceptable
+     * by the desired transfer manager's creation function.
+     *
+     * @param address Address of the target provider.
+     * @param provider_id Provider id.
+     * @param name Name to give the TransferManager.
+     * @param type Type of the target to create.
+     * @param config JSON configuration for the transfer manager.
+     */
+    void addTransferManager(const std::string& address,
+                            uint16_t provider_id,
+                            const std::string& name,
+                            const std::string& type,
+                            const json& config) const {
+        return addTransferManager(address, provider_id, name, type, config.dump());
+    }
+
     private:
 
     std::shared_ptr<AdminImpl> self;

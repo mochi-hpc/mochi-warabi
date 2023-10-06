@@ -99,7 +99,7 @@ class TransferManager {
      * @return a Result<bool> indicating the result of the operation.
      */
     virtual Result<bool> pull(
-            const WritableRegion& region,
+            WritableRegion& region,
             const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes,
             thallium::bulk data,
             thallium::endpoint address,
@@ -119,7 +119,7 @@ class TransferManager {
      * @return a Result<bool> indicating the result of the operation.
      */
     virtual Result<bool> push(
-            const ReadableRegion& region,
+            ReadableRegion& region,
             const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes,
             thallium::bulk data,
             thallium::endpoint address,
@@ -147,6 +147,16 @@ class TransferManagerFactory {
     }
 
     /**
+     * @brief Validate that the JSON configuration has the expected schema.
+     *
+     * @param name Type of transfer manager to use.
+     * @param config Configuration object to validate.
+     *
+     * @return true if the JSON configuration is valid, false otherwise.
+     */
+    static Result<bool> validateConfig(const std::string& name, const json& config);
+
+    /**
      * @brief Creates a TransferManager and returns a unique_ptr to the created instance.
      *
      * @param name Name of the type to use.
@@ -155,7 +165,7 @@ class TransferManagerFactory {
      *
      * @return a unique_ptr to the created TransferManager.
      */
-    static std::unique_ptr<TransferManager> createTransferManager(
+    static Result<std::unique_ptr<TransferManager>> createTransferManager(
         const std::string& name,
         const thallium::engine& engine,
         const json& config);
@@ -164,7 +174,11 @@ class TransferManagerFactory {
 
     std::unordered_map<
         std::string,
-        std::function<std::unique_ptr<TransferManager>(const thallium::engine&, const json&)>> create_fn;
+        std::function<Result<std::unique_ptr<TransferManager>>(const thallium::engine&, const json&)>> create_fn;
+
+    std::unordered_map<
+        std::string,
+        std::function<Result<bool>(const json&)>> validate_fn;
 };
 
 } // namespace warabi
@@ -185,9 +199,14 @@ class __WarabiTransferManagerRegistration {
     {
         warabi::TransferManagerFactory::instance().create_fn[name] =
             [name](const thallium::engine& engine, const json& config) {
-                auto p = TransferManagerType::create(engine, config);
-                p->m_name = name;
-                return p;
+                auto r = TransferManagerType::create(engine, config);
+                if(!r.success()) return r;
+                r.value()->m_name = name;
+                return r;
+            };
+        warabi::TransferManagerFactory::instance().validate_fn[name] =
+            [name](const json& config) {
+                return TransferManagerType::validate(config);
             };
     }
 };

@@ -32,7 +32,7 @@ Result<bool> TargetFactory::validateConfig(const std::string& backend_name,
     auto it = instance().validate_fn.find(backend_name);
     if(it == instance().validate_fn.end()) {
         result.success() = false;
-        result.error() = "Could not find backend \"" + backend_name + "\"";
+        result.error() = fmt::format("Unknown target type \"{}\"", backend_name);
         return result;
     }
     auto& f = it->second;

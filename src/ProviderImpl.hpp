@@ -55,8 +55,12 @@ static constexpr const char* configSchema = R"(
           "type": "object",
           "properties": {
             "type": {"type": "string"},
-            "config": {"type": "object"},
-            "transfer_manager": {"type": "string"}
+            "config": {
+              "type": "object",
+              "properties": {
+                "transfer_manager": {"type": "string"}
+              }
+            }
           },
           "required": ["type"]
         }
@@ -119,11 +123,14 @@ struct TargetEntry {
 
     std::shared_ptr<Backend>         m_target;
     std::shared_ptr<TransferManager> m_transfer_manager;
+    std::string                      m_transfer_manager_name;
 
     TargetEntry(std::shared_ptr<Backend> target,
-                std::shared_ptr<TransferManager> tm)
+                std::shared_ptr<TransferManager> tm,
+                std::string tm_name)
     : m_target(std::move(target))
-    , m_transfer_manager(std::move(tm)) {}
+    , m_transfer_manager(std::move(tm))
+    , m_transfer_manager_name(std::move(tm_name)) {}
 
     Backend* operator->() { return m_target.get(); }
     Backend& operator*() { return *m_target; }
@@ -161,6 +168,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     AutoDeregistering m_add_target;
     AutoDeregistering m_remove_target;
     AutoDeregistering m_destroy_target;
+    AutoDeregistering m_add_transfer_manager;
     // Client RPC
     AutoDeregistering m_check_target;
     AutoDeregistering m_create;
@@ -175,7 +183,9 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
 
     // Backends
     std::unordered_map<UUID, std::shared_ptr<TargetEntry>> m_targets;
-    tl::mutex                                              m_targets_mtx;
+    mutable tl::mutex                                      m_targets_mtx;
+    std::unordered_map<std::string, std::shared_ptr<TransferManager>> m_transfer_managers;
+    mutable tl::mutex                                                 m_transfer_managers_mtx;
 
     ProviderImpl(const tl::engine& engine, uint16_t provider_id, const std::string& config, const tl::pool& pool)
     : tl::provider<ProviderImpl>(engine, provider_id)
@@ -184,6 +194,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     , m_add_target(define("warabi_add_target", &ProviderImpl::addTargetRPC, pool))
     , m_remove_target(define("warabi_remove_target", &ProviderImpl::removeTargetRPC, pool))
     , m_destroy_target(define("warabi_destroy_target", &ProviderImpl::destroyTargetRPC, pool))
+    , m_add_transfer_manager(define("warabi_add_transfer_manager", &ProviderImpl::addTransferManagerRPC, pool))
     , m_check_target(define("warabi_check_target", &ProviderImpl::checkTargetRPC, pool))
     , m_create(define("warabi_create",  &ProviderImpl::createRPC, pool))
     , m_write(define("warabi_write",  &ProviderImpl::writeRPC, pool))
@@ -229,6 +240,22 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
             throw Exception("Invalid JSON configuration (see error logs for information)");
         }
 
+        auto transfer_managers = json_config.value("transfer_managers", json::object());
+        for(auto& [key, val] : transfer_managers.items()) {
+            auto& tm_type = val["type"].get_ref<const std::string&>();
+            auto tm_config = val.value("config", json::object());
+            auto valid = validateTransferManagerConfig(tm_type, tm_config);
+            if(!valid.success()) throw Exception(valid.error());
+        }
+        for(auto& [key, val] : transfer_managers.items()) {
+            const std::string& tm_type = val["type"].get_ref<const std::string&>();
+            auto tm_config = val.value("config", json::object());
+            addTransferManager(key, tm_type, tm_config.dump());
+        }
+        if(!m_transfer_managers.count("__default__")) {
+            addTransferManager("__default__", "__default__", json::object());
+        }
+
         if(!json_config.contains("targets")) return;
         auto& targets = json_config["targets"];
         for(auto& target : targets) {
@@ -249,6 +276,8 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     }
 
     std::string getConfig() const {
+        auto l1 = std::unique_lock<tl::mutex>{m_targets_mtx};
+        auto l2 = std::unique_lock<tl::mutex>{m_transfer_managers_mtx};
         auto config = json::object();
         config["targets"] = json::array();
         for(auto& pair : m_targets) {
@@ -257,8 +286,15 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
             target_config["__id__"] = pair.first.to_string();
             target_config["type"] = target_entry->name();
             target_config["config"] = json::parse(target_entry->getConfig());
-            // TODO add "transfer_manager" entry
+            target_config["config"]["transfer_manager"] = target_entry.m_transfer_manager_name;
             config["targets"].push_back(target_config);
+        }
+        config["transfer_managers"] = json::object();
+        auto& tms = config["transfer_managers"];
+        for(auto& pair : m_transfer_managers) {
+            tms[pair.first] = json::object();
+            tms[pair.first]["type"] = pair.second->name();
+            tms[pair.first]["config"] = pair.second->getConfig();
         }
         return config.dump();
     }
@@ -282,9 +318,19 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
             return result;
         } else {
             std::lock_guard<tl::mutex> lock(m_targets_mtx);
+            std::lock_guard<tl::mutex> lock2(m_transfer_managers_mtx);
+
+            auto tm_name = json_config.value("transfer_manager", "__default__");
+            if(m_transfer_managers.count(tm_name) == 0) {
+                result.success() = false;
+                result.error() = fmt::format("Could not find transfer manager named {}", tm_name);
+                return result;
+            }
+            auto tm = m_transfer_managers[tm_name];
+
             m_targets[target_id] = std::make_shared<TargetEntry>(
                 std::shared_ptr<Backend>(std::move(target.value())),
-                std::shared_ptr<TransferManager>{nullptr}); // TODO add transfer manager
+                tm, tm_name);
             result.value() = target_id;
         }
 
@@ -323,7 +369,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
                       const std::string& target_type,
                       const std::string& target_config) {
 
-        trace("Received addTarget request", id());
+        trace("Received addTarget request");
         trace(" => type = {}", target_type);
         trace(" => config = {}", target_config);
 
@@ -380,6 +426,78 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         trace("Target {} successfully destroyed", target_id.to_string());
     }
 
+    Result<bool> validateTransferManagerConfig(
+            const std::string& type,
+            const json& config) {
+        return TransferManagerFactory::validateConfig(type, config);
+    }
+
+    Result<bool> addTransferManager(const std::string& name,
+                                    const std::string& type,
+                                    const json& config) {
+
+        std::lock_guard<tl::mutex> lock(m_transfer_managers_mtx);
+        Result<bool> result;
+        if(m_transfer_managers.count(name) != 0) {
+            result.success() = false;
+            result.error() = fmt::format("A TransferManager with name \"{}\" already exists", name);
+            return result;
+        }
+        auto tm = TransferManagerFactory::createTransferManager(type, m_engine, config);
+        if(not tm.success()) {
+            result.success() = false;
+            result.error() = tm.error();
+            return result;
+        } else {
+            m_transfer_managers[name] = std::move(tm.value());
+        }
+        trace("Successfully added transfer manager {} of type {}", name, type);
+        return result;
+    }
+
+    Result<bool> addTransferManager(const std::string& name,
+                                    const std::string& type,
+                                    const std::string& config) {
+
+        Result<bool> result;
+
+        json json_config;
+        try {
+            json_config = json::parse(config);
+        } catch(json::parse_error& ex) {
+            result.error() = ex.what();
+            result.success() = false;
+            error("Could not parse target configuration for target");
+            return result;
+        }
+
+        auto valid = validateTransferManagerConfig(type, json_config);
+        if(!valid.success()) {
+            result.error() = valid.error();
+            result.success() = false;
+            return result;
+        }
+
+        result = addTransferManager(name, type, json_config);
+        return result;
+    }
+
+    void addTransferManagerRPC(const tl::request& req,
+                               const std::string& name,
+                               const std::string& type,
+                               const std::string& config) {
+
+        trace("Received addTransferManager request");
+        trace(" => name = {}", name);
+        trace(" => type = {}", type);
+        trace(" => config = {}", config);
+
+        Result<bool> result;
+        AutoResponse<decltype(result)> response{req, result};
+
+        result = addTransferManager(name, type, config);
+    }
+
     void checkTargetRPC(const tl::request& req,
                         const UUID& target_id) {
         trace("Received checkTarget request for target {}", target_id.to_string());
@@ -425,13 +543,8 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
             return;
         }
         auto source = address.empty() ? req.get_endpoint() : m_engine.lookup(address);
-        if(target->m_transfer_manager) {
-            result = target->m_transfer_manager->pull(
+        result = target->m_transfer_manager->pull(
                 *region.value(), regionOffsetSizes, data, source, bulkOffset, persist);
-        } else {
-            result = region.value()->write(
-                regionOffsetSizes, data, source, bulkOffset, persist);
-        }
         trace("Successfully executed write on target {}", target_id.to_string());
     }
 
@@ -452,7 +565,6 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
             return;
         }
         result = region.value()->write(regionOffsetSizes, buffer.data(), persist);
-        // TODO add TransferManager usage
         trace("Successfully executed write_eager on target {}", target_id.to_string());
     }
 
@@ -493,13 +605,8 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         result = region.value()->getRegionID();
         auto source = address.empty() ? req.get_endpoint() : m_engine.lookup(address);
         Result<bool> writeResult;
-        if(target->m_transfer_manager) {
-            writeResult = target->m_transfer_manager->pull(
+        writeResult = target->m_transfer_manager->pull(
                 *region.value(), {{0, size}}, data, source, bulkOffset, persist);
-        } else {
-            writeResult = region.value()->write(
-                {{0, size}}, data, source, bulkOffset, persist);
-        }
         if(!writeResult.success()) {
             result.success() = false;
             result.error() = writeResult.error();
@@ -524,7 +631,6 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         result = region.value()->getRegionID();
         auto writeResult = region.value()->write(
                 {{0, buffer.size()}}, buffer.data(), persist);
-        // TODO use TransferManager
         if(!writeResult.success()) {
             result.success() = false;
             result.error() = writeResult.error();
@@ -550,13 +656,8 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
             return;
         }
         auto source = address.empty() ? req.get_endpoint() : m_engine.lookup(address);
-        if(target->m_transfer_manager) {
-            result = target->m_transfer_manager->push(
+        result = target->m_transfer_manager->push(
                 *region.value(), regionOffsetSizes, data, source, bulkOffset);
-        } else {
-            result = region.value()->read(
-                regionOffsetSizes, data, source, bulkOffset);
-        }
         trace("Successfully executed read on target {}", target_id.to_string());
     }
 

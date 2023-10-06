@@ -48,6 +48,17 @@ UUID Admin::addTarget(const std::string& address,
     return std::move(result).valueOrThrow();
 }
 
+void Admin::addTransferManager(const std::string& address,
+                               uint16_t provider_id,
+                               const std::string& name,
+                               const std::string& type,
+                               const std::string& config) const {
+    auto endpoint  = self->m_engine.lookup(address);
+    auto ph        = tl::provider_handle(endpoint, provider_id);
+    Result<bool> result = self->m_add_transfer_manager.on(ph)(name, type, config);
+    result.check();
+}
+
 void Admin::removeTarget(const std::string& address,
                          uint16_t provider_id,
                          const UUID& target_id) const {

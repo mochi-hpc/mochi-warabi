@@ -20,12 +20,14 @@ class AdminImpl {
     tl::remote_procedure m_add_target;
     tl::remote_procedure m_remove_target;
     tl::remote_procedure m_destroy_target;
+    tl::remote_procedure m_add_transfer_manager;
 
     AdminImpl(const tl::engine& engine)
     : m_engine(engine)
     , m_add_target(m_engine.define("warabi_add_target"))
     , m_remove_target(m_engine.define("warabi_remove_target"))
     , m_destroy_target(m_engine.define("warabi_destroy_target"))
+    , m_add_transfer_manager(m_engine.define("warabi_add_transfer_manager"))
     {}
 
     AdminImpl(margo_instance_id mid)
