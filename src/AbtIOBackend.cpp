@@ -31,7 +31,7 @@ static inline RegionID OffsetSizeToRegionID(const size_t offset, const size_t si
 
 static inline Result<std::pair<size_t,size_t>> RegionIDtoOffsetSize(const RegionID& regionID) {
     Result<std::pair<size_t,size_t>> result;
-    if(regionID.content[0] != sizeof(std::pair<size_t,size_t>)+1) {
+    if(!regionID.content || regionID.content[0] != sizeof(std::pair<size_t,size_t>)+1) {
         result.error() = "Invalid RegionID format";
         result.success() = false;
     } else {

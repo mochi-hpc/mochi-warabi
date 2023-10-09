@@ -22,7 +22,7 @@ static inline RegionID PMEMoidToRegionID(const PMEMoid& oid) {
 
 static inline Result<PMEMoid> RegionIDtoPMEMoid(const RegionID& regionID) {
     Result<PMEMoid> result;
-    if(regionID.content[0] != sizeof(PMEMoid)+1) {
+    if(!regionID.content || regionID.content[0] != sizeof(PMEMoid)+1) {
         result.error() = "Invalid RegionID format";
         result.success() = false;
     } else {

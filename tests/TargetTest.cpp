@@ -70,8 +70,15 @@ TEST_CASE("Target test", "[target]") {
             /* write into the region */
             REQUIRE_NOTHROW(th.write(regionID, 0, in.data(), in.size()));
 
+            /* write into a region with an invalid ID */
+            warabi::RegionID invalidID;
+            REQUIRE_THROWS_AS(th.write(invalidID, 0, in.data(), in.size()), warabi::Exception);
+
             /* persist the region */
             REQUIRE_NOTHROW(th.persist(regionID, 0, in.size()));
+
+            /* persist region with invalid ID */
+            REQUIRE_THROWS_AS(th.persist(invalidID, 0, in.size()), warabi::Exception);
 
             /* read the data */
             std::vector<char> out(in.size());
@@ -79,6 +86,9 @@ TEST_CASE("Target test", "[target]") {
             REQUIRE(std::memcmp(in.data(), out.data(), in.size()) == 0);
 
             for(size_t i = 0; i < in.size(); ++i) in[i] = 'a' + (i % 26);
+
+            /* read data from invalid ID */
+            REQUIRE_THROWS_AS(th.read(invalidID, 0, out.data(), out.size()), warabi::Exception);
 
             /* use createWrite */
             REQUIRE_NOTHROW(th.createAndWrite(&regionID, in.data(), in.size(), true));
@@ -109,9 +119,18 @@ TEST_CASE("Target test", "[target]") {
             REQUIRE_NOTHROW(th.write(regionID, 0, in.data(), in.size(), false, &req));
             REQUIRE_NOTHROW(req.wait());
 
+            /* write in a region with an invalid ID */
+            warabi::RegionID invalidID;
+            REQUIRE_NOTHROW(th.write(invalidID, 0, in.data(), in.size(), false, &req));
+            REQUIRE_THROWS_AS(req.wait(), warabi::Exception);
+
             /* persist the region */
             REQUIRE_NOTHROW(th.persist(regionID, 0, in.size(), &req));
             REQUIRE_NOTHROW(req.wait());
+
+            /* persist region with invalid ID */
+            REQUIRE_NOTHROW(th.persist(invalidID, 0, in.size(), &req));
+            REQUIRE_THROWS_AS(req.wait(), warabi::Exception);
 
             /* read the data */
             std::vector<char> out(in.size());
@@ -120,6 +139,10 @@ TEST_CASE("Target test", "[target]") {
             REQUIRE(std::memcmp(in.data(), out.data(), in.size()) == 0);
 
             for(size_t i = 0; i < in.size(); ++i) in[i] = 'a' + (i % 26);
+
+            /* read data with invalid ID */
+            REQUIRE_NOTHROW(th.read(invalidID, 0, out.data(), out.size(), &req));
+            REQUIRE_THROWS_AS(req.wait(), warabi::Exception);
 
             /* use createWrite */
             REQUIRE_NOTHROW(th.createAndWrite(&regionID, in.data(), in.size(), true, &req));

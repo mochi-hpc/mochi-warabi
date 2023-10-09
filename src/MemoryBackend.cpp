@@ -27,22 +27,16 @@ struct MemoryRegion : public WritableRegion, public ReadableRegion {
     std::vector<char>&                m_region;
     std::unique_lock<thallium::mutex> m_lock;
 
-    Result<std::vector<std::pair<void*, size_t>>> convertToSegments(
+    std::vector<std::pair<void*, size_t>> convertToSegments(
         const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes) {
-        Result<std::vector<std::pair<void*, size_t>>> result;
-        auto& segments = result.value();
+        std::vector<std::pair<void*, size_t>> segments;
         segments.reserve(regionOffsetSizes.size());
         for(size_t i=0; i < regionOffsetSizes.size(); ++i) {
             if(regionOffsetSizes[i].second == 0) continue;
-            if(regionOffsetSizes[i].first + regionOffsetSizes[i].second > m_region.size()) {
-                result.success() = false;
-                result.error() = "Trying to access region outside of its bounds";
-                return result;
-            }
             segments.push_back({m_region.data() + regionOffsetSizes[i].first,
                                 regionOffsetSizes[i].second});
         }
-        return result;
+        return segments;
     }
 
     Result<RegionID> getRegionID() override {
@@ -60,16 +54,11 @@ struct MemoryRegion : public WritableRegion, public ReadableRegion {
         (void)persist;
         Result<bool> result;
         auto segments = convertToSegments(regionOffsetSizes);
-        if(!segments.success()) {
-            result.error() = segments.error();
-            result.success() = false;
-            return result;
-        }
-        if(segments.value().size() == 0) return result;
+        if(segments.size() == 0) return result;
         size_t totalSize = std::accumulate(
-            segments.value().begin(), segments.value().end(), (size_t)0,
+            segments.begin(), segments.end(), (size_t)0,
             [](size_t acc, const auto& pair) { return acc + pair.second; });
-        auto localBulk = m_engine.expose(segments.value(), thallium::bulk_mode::write_only);
+        auto localBulk = m_engine.expose(segments, thallium::bulk_mode::write_only);
         localBulk << remoteBulk.on(address)(remoteBulkOffset, totalSize);
         return result;
     }
@@ -80,14 +69,9 @@ struct MemoryRegion : public WritableRegion, public ReadableRegion {
         (void)persist;
         Result<bool> result;
         auto segments = convertToSegments(regionOffsetSizes);
-        if(!segments.success()) {
-            result.error() = segments.error();
-            result.success() = false;
-            return result;
-        }
         size_t offset = 0;
         const char* ptr = (const char*)data;
-        for(auto& segment : segments.value()) {
+        for(auto& segment : segments) {
             std::memcpy(segment.first, ptr + offset, segment.second);
             offset += segment.second;
         }
@@ -96,15 +80,8 @@ struct MemoryRegion : public WritableRegion, public ReadableRegion {
 
     Result<bool> persist(
             const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes) override {
-        Result<bool> result;
-        for(size_t i=0; i < regionOffsetSizes.size(); ++i) {
-            if(regionOffsetSizes[i].first + regionOffsetSizes[i].second > m_region.size()) {
-                result.success() = false;
-                result.error() = "Trying to access region outside of its bounds";
-                return result;
-            }
-        }
-        return result;
+        (void)regionOffsetSizes;
+        return Result<bool>{};
     }
 
     Result<bool> read(
@@ -114,16 +91,11 @@ struct MemoryRegion : public WritableRegion, public ReadableRegion {
             size_t remoteBulkOffset) override {
         Result<bool> result;
         auto segments = convertToSegments(regionOffsetSizes);
-        if(!segments.success()) {
-            result.error() = segments.error();
-            result.success() = false;
-            return result;
-        }
-        if(segments.value().size() == 0) return result;
+        if(segments.size() == 0) return result;
         size_t totalSize = std::accumulate(
-            segments.value().begin(), segments.value().end(), (size_t)0,
+            segments.begin(), segments.end(), (size_t)0,
             [](size_t acc, const auto& pair) { return acc + pair.second; });
-        auto localBulk = m_engine.expose(segments.value(), thallium::bulk_mode::read_only);
+        auto localBulk = m_engine.expose(segments, thallium::bulk_mode::read_only);
         localBulk >> remoteBulk.on(address)(remoteBulkOffset, totalSize);
         return result;
      }
@@ -133,15 +105,10 @@ struct MemoryRegion : public WritableRegion, public ReadableRegion {
             void* data) override {
         Result<bool> result;
         auto segments = convertToSegments(regionOffsetSizes);
-        if(!segments.success()) {
-            result.error() = segments.error();
-            result.success() = false;
-            return result;
-        }
-        if(segments.value().size() == 0) return result;
+        if(segments.size() == 0) return result;
         size_t offset = 0;
         char* ptr = (char*)data;
-        for(auto& segment : segments.value()) {
+        for(auto& segment : segments) {
             std::memcpy(ptr + offset, segment.first, segment.second);
             offset += segment.second;
         }
