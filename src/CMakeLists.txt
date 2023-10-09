@@ -4,6 +4,7 @@ set (server-src-files
      Backend.cpp
      TransferManager.cpp
      DefaultTransferManager.cpp
+     PipelineTransferManager.cpp
      MemoryBackend.cpp
      PmemBackend.cpp
      AbtIOBackend.cpp)
