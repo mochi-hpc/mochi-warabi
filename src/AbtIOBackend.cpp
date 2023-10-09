@@ -73,11 +73,13 @@ struct AbtIORegion : public WritableRegion, public ReadableRegion {
             regionOffsetSizes.begin(), regionOffsetSizes.end(), (size_t)0,
             [](size_t acc, const std::pair<size_t, size_t>& p) { return acc + p.second; });
         int ret = posix_memalign((void**)(&data), m_owner->m_alignment, size);
+        // LCOV_EXCL_START
         if(ret != 0) {
             result.error() = fmt::format("posix_memalign failed in write: {}", strerror(ret));
             result.success() = false;
             return result;
         }
+        // LCOV_EXCL_STOP
         auto localBulk = m_owner->m_engine.expose({{data, size}}, thallium::bulk_mode::write_only);
         localBulk << remoteBulk.on(address)(remoteBulkOffset, size);
         result = write(regionOffsetSizes, data, persist);
@@ -241,18 +243,9 @@ std::string AbtIOTarget::getConfig() const {
 
 Result<bool> AbtIOTarget::destroy() {
     Result<bool> result;
-    if(m_fd) {
-        abt_io_close(m_abtio, m_fd);
-        m_fd = 0;
-        std::filesystem::remove(m_filename.c_str());
-    } else {
-        result.value() = false;
-        result.error() = "Target already destroyed";
-    }
-    if(m_abtio) {
-        abt_io_finalize(m_abtio);
-        m_abtio = nullptr;
-    }
+    abt_io_close(m_abtio, m_fd);
+    std::filesystem::remove(m_filename.c_str());
+    if(m_abtio) abt_io_finalize(m_abtio);
     return result;
 }
 
@@ -261,11 +254,6 @@ Result<bool> AbtIOTarget::destroy() {
 
 Result<std::unique_ptr<WritableRegion>> AbtIOTarget::create(size_t size) {
     Result<std::unique_ptr<WritableRegion>> result;
-    if(!m_fd) {
-        result.success() = false;
-        result.error() = fmt::format("File {} has been destroyed", m_filename);
-        return result;
-    }
     size_t alignedSize = WARABI_ALIGN_UP(size, m_alignment);
     size_t offset = m_file_size.fetch_add(alignedSize);
     auto regionID = OffsetSizeToRegionID(offset, alignedSize);
@@ -308,11 +296,6 @@ Result<std::unique_ptr<WritableRegion>> AbtIOTarget::write(const RegionID& regio
 
 Result<std::unique_ptr<ReadableRegion>> AbtIOTarget::read(const RegionID& region_id) {
     Result<std::unique_ptr<ReadableRegion>> result;
-    if(!m_fd) {
-        result.success() = false;
-        result.error() = fmt::format("File {} has been destroyed", m_filename);
-        return result;
-    }
     auto regionOffsetSize = RegionIDtoOffsetSize(region_id);
     if(!regionOffsetSize.success()) {
         result.success() = false;
@@ -326,11 +309,6 @@ Result<std::unique_ptr<ReadableRegion>> AbtIOTarget::read(const RegionID& region
 
 Result<bool> AbtIOTarget::erase(const RegionID& region_id) {
     Result<bool> result;
-    if(!m_fd) {
-        result.success() = false;
-        result.error() = fmt::format("File {} has been destroyed", m_filename);
-        return result;
-    }
     auto regionOffsetSize = RegionIDtoOffsetSize(region_id);
     if(!regionOffsetSize.success()) {
         result.success() = false;

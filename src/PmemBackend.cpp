@@ -186,25 +186,13 @@ std::string PmemTarget::getConfig() const {
 }
 
 Result<bool> PmemTarget::destroy() {
-    Result<bool> result;
-    if(m_pmem_pool) {
-        pmemobj_close(m_pmem_pool);
-        m_pmem_pool = nullptr;
-        std::filesystem::remove(m_filename.c_str());
-    } else {
-        result.value() = false;
-        result.error() = "No pmem pool to close";
-    }
-    return result;
+    pmemobj_close(m_pmem_pool);
+    std::filesystem::remove(m_filename.c_str());
+    return Result<bool>{};
 }
 
 Result<std::unique_ptr<WritableRegion>> PmemTarget::create(size_t size) {
     Result<std::unique_ptr<WritableRegion>> result;
-    if(!m_pmem_pool) {
-        result.success() = false;
-        result.error() = "Pmem pool has been destroyed";
-        return result;
-    }
     PMEMoid oid;
     int ret = pmemobj_alloc(m_pmem_pool, &oid, size, 0, NULL, NULL);
     if(ret != 0) {
