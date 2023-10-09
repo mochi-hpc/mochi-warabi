@@ -96,6 +96,9 @@ TEST_CASE("Target test", "[target]") {
             /* read the second region */
             REQUIRE_NOTHROW(th.read(regionID, 0, out.data(), out.size()));
             REQUIRE(std::memcmp(in.data(), out.data(), in.size()) == 0);
+
+            /* erase the region */
+            REQUIRE_NOTHROW(th.erase(regionID));
         }
 
         SECTION("With non-blocking API") {
@@ -152,6 +155,10 @@ TEST_CASE("Target test", "[target]") {
             REQUIRE_NOTHROW(th.read(regionID, 0, out.data(), out.size(), &req));
             REQUIRE_NOTHROW(req.wait());
             REQUIRE(std::memcmp(in.data(), out.data(), in.size()) == 0);
+
+            /* erase the region */
+            REQUIRE_NOTHROW(th.erase(regionID, &req));
+            REQUIRE_NOTHROW(req.wait());
         }
     }
 }
