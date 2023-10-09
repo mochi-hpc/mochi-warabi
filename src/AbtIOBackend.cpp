@@ -244,8 +244,10 @@ std::string AbtIOTarget::getConfig() const {
 Result<bool> AbtIOTarget::destroy() {
     Result<bool> result;
     abt_io_close(m_abtio, m_fd);
+    m_fd = 0;
     std::filesystem::remove(m_filename.c_str());
-    if(m_abtio) abt_io_finalize(m_abtio);
+    abt_io_finalize(m_abtio);
+    m_abtio = nullptr;
     return result;
 }
 

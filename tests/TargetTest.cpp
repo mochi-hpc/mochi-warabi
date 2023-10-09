@@ -99,6 +99,9 @@ TEST_CASE("Target test", "[target]") {
 
             /* erase the region */
             REQUIRE_NOTHROW(th.erase(regionID));
+
+            /* erase region with invalid ID */
+            REQUIRE_THROWS_AS(th.erase(invalidID), warabi::Exception);
         }
 
         SECTION("With non-blocking API") {
@@ -159,6 +162,10 @@ TEST_CASE("Target test", "[target]") {
             /* erase the region */
             REQUIRE_NOTHROW(th.erase(regionID, &req));
             REQUIRE_NOTHROW(req.wait());
+
+            /* erase region with invalid ID*/
+            REQUIRE_NOTHROW(th.erase(invalidID, &req));
+            REQUIRE_THROWS_AS(req.wait(), warabi::Exception);
         }
     }
 }

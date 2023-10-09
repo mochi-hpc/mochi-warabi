@@ -1,2 +1,1 @@
-Your project "warabi" has been setup!
- Enjoy programming with Mochi!
+Warabi is a Blob-storage component for Mochi HPC services.

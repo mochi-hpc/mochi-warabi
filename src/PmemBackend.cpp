@@ -187,6 +187,7 @@ std::string PmemTarget::getConfig() const {
 
 Result<bool> PmemTarget::destroy() {
     pmemobj_close(m_pmem_pool);
+    m_pmem_pool = nullptr;
     std::filesystem::remove(m_filename.c_str());
     return Result<bool>{};
 }
