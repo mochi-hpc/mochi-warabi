@@ -13,8 +13,13 @@
 TEST_CASE("Admin tests", "[admin]") {
 
     auto target_type = GENERATE(as<std::string>{}, "memory", "pmdk", "abtio");
+    auto tm_type = GENERATE(as<std::string>{}, "__default__", "pipeline");
+
     CAPTURE(target_type);
+    CAPTURE(tm_type);
+
     auto target_config = makeConfigForBackend(target_type);
+    auto tm_config = makeConfigForTransferManager(tm_type);
 
     auto engine = thallium::engine("na+sm", THALLIUM_SERVER_MODE);
     DEFER(engine.finalize());
@@ -26,6 +31,21 @@ TEST_CASE("Admin tests", "[admin]") {
         std::string addr = engine.self();
 
         SECTION("Create and destroy targets") {
+            /* add a transfer manager */
+            REQUIRE_NOTHROW(admin.addTransferManager(addr, 0, "tm", tm_type, tm_config));
+
+            /* add a transfer manager with a name that already exists */
+            REQUIRE_THROWS_AS(admin.addTransferManager(addr, 0, "tm", tm_type, tm_config),
+                              warabi::Exception);
+
+            /* add a transfer manager with an invalid type */
+            REQUIRE_THROWS_AS(admin.addTransferManager(addr, 0, "tm2", "bla", tm_config),
+                              warabi::Exception);
+
+            /* add a transfer manager with an invalid config */
+            REQUIRE_THROWS_AS(admin.addTransferManager(addr, 0, "my_tm2", tm_type, "{["),
+                              warabi::Exception);
+
             /* correct target creation */
             warabi::UUID target_id;
             warabi::UUID bad_id;
@@ -58,20 +78,6 @@ TEST_CASE("Admin tests", "[admin]") {
             /* destroy a target with an ID that does not exist */
             REQUIRE_THROWS_AS(admin.destroyTarget(addr, 0, bad_id), warabi::Exception);
 
-            /* add a transfer manager */
-            REQUIRE_NOTHROW(admin.addTransferManager(addr, 0, "my_tm", "__default__", "{}"));
-
-            /* add a transfer manager with a name that already exists */
-            REQUIRE_THROWS_AS(admin.addTransferManager(addr, 0, "my_tm", "__default__", "{}"),
-                              warabi::Exception);
-
-            /* add a transfer manager with an invalid type */
-            REQUIRE_THROWS_AS(admin.addTransferManager(addr, 0, "my_tm2", "bla", "{}"),
-                              warabi::Exception);
-
-            /* add a transfer manager with an invalid config */
-            REQUIRE_THROWS_AS(admin.addTransferManager(addr, 0, "my_tm2", "__default__", "{["),
-                              warabi::Exception);
         }
     }
 }

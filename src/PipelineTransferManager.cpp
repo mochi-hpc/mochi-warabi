@@ -22,7 +22,7 @@ static constexpr const char* configSchema = R"(
     "num_pools": {"type": "integer", "minimum": 1},
     "num_buffers_per_pool": {"type": "integer", "minimum": 1},
     "first_buffer_size": {"type": "integer", "minimum": 1},
-    "buffer_size_multiple": {"type": "number", "exclusiveMinimum": 1}
+    "buffer_size_multiple": {"type": "integer", "exclusiveMinimum": 1}
   },
   "required": ["num_pools", "num_buffers_per_pool", "first_buffer_size", "buffer_size_multiple"]
 }
@@ -128,9 +128,7 @@ class PipelineTransferManager : public TransferManager {
                     margo_bulk_poolset_release(m_poolset, bulk);
             }));
         }
-
         Result<bool> result;
-
         for(size_t i = 0; i < ults.size(); ++i) {
             ults[i]->join();
             if(!ultResults[i].success())
@@ -145,8 +143,76 @@ class PipelineTransferManager : public TransferManager {
             thallium::bulk data,
             thallium::endpoint address,
             size_t bulkOffset) override {
-        // TODO
-        return region.read(regionOffsetSizes, data, address, bulkOffset);
+        // get the maximum size of buffers we can get from the poolset
+        hg_size_t maxBufferSize = 0;
+        margo_bulk_poolset_get_max(m_poolset, &maxBufferSize);
+        // make a copy of the regionOffsetSizes vector with segments
+        // that are guaranteed to be small enough for a single buffer
+        // (i.e. split segments that are too big)
+        size_t currentListSize = maxBufferSize;
+        std::vector<std::vector<std::pair<size_t, size_t>>> regionOffsetSizesSets;
+        std::vector<size_t>                                 bulkOffsets;
+
+        for(auto& p : regionOffsetSizes) {
+            size_t offset = p.first;
+            size_t remaining = p.second;
+            while(remaining) {
+                auto size = std::min(remaining, maxBufferSize);
+                if(currentListSize + size > maxBufferSize) {
+                    regionOffsetSizesSets.emplace_back();
+                    regionOffsetSizesSets.back().reserve(regionOffsetSizes.size());
+                    bulkOffsets.push_back(bulkOffset);
+                    currentListSize = 0;
+                } else {
+                    currentListSize += size;
+                    bulkOffset += size;
+                }
+                regionOffsetSizesSets.back().push_back({offset, size});
+                remaining -= size;
+            }
+        }
+        // issue the transfers and write calls in parallel
+        std::vector<tl::managed<tl::thread>> ults;
+        std::vector<Result<bool>> ultResults;
+        ults.reserve(bulkOffsets.size());
+        ultResults.resize(bulkOffsets.size());
+        for(size_t i = 0; i < bulkOffsets.size(); ++i) {
+            ults.push_back(
+                tl::thread::self().get_last_pool().make_thread(
+                    [&region, &data, &address, i, this,
+                     &regionOffsetSizesSets, bulkOffset=bulkOffsets[i],
+                     &ultResults]() mutable {
+                    auto& regionOffsetSizes = regionOffsetSizesSets[i];
+                    auto& result = ultResults[i];
+                    // compute the size of this list of segments
+                    auto size = std::accumulate(
+                        regionOffsetSizes.begin(), regionOffsetSizes.end(), (size_t)0,
+                        [](size_t s, const auto& p) { return s + p.second; });
+                    // get a buffer into which to send the data
+                    hg_bulk_t bulk = HG_BULK_NULL;
+                    margo_bulk_poolset_get(m_poolset, size, &bulk);
+                    // access the underlying memory
+                    void* bufPtr = nullptr;
+                    hg_size_t bufSize = 0;
+                    hg_uint32_t actualCount = 0;
+                    margo_bulk_access(bulk, 0, size, HG_BULK_READWRITE, 1, &bufPtr, &bufSize, &actualCount);
+                    // read the data from the region
+                    result = region.read(regionOffsetSizes, bufPtr);
+                    // wrap it in a thallium bulk
+                    auto localBulk = m_engine.wrap(bulk, true);
+                    // issue the transfer
+                    localBulk >> data.on(address).select(bulkOffset, size);
+                    // release the buffer
+                    margo_bulk_poolset_release(m_poolset, bulk);
+            }));
+        }
+        Result<bool> result;
+        for(size_t i = 0; i < ults.size(); ++i) {
+            ults[i]->join();
+            if(!ultResults[i].success())
+                result = ultResults[i];
+        }
+        return result;
     }
 
     static Result<std::unique_ptr<TransferManager>> create(
