@@ -209,7 +209,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         trace("Registered provider with id {}", get_provider_id());
         json json_config;
         try {
-            if(!json_config.empty())
+            if(!config.empty())
                 json_config = json::parse(config);
             else
                 json_config = json::object();
@@ -239,7 +239,6 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
             }
             throw Exception("Invalid JSON configuration (see error logs for information)");
         }
-
         auto transfer_managers = json_config.value("transfer_managers", json::object());
         for(auto& [key, val] : transfer_managers.items()) {
             auto& tm_type = val["type"].get_ref<const std::string&>();
@@ -294,7 +293,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         for(auto& pair : m_transfer_managers) {
             tms[pair.first] = json::object();
             tms[pair.first]["type"] = pair.second->name();
-            tms[pair.first]["config"] = pair.second->getConfig();
+            tms[pair.first]["config"] = json::parse(pair.second->getConfig());
         }
         return config.dump();
     }

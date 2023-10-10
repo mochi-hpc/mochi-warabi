@@ -9,3 +9,8 @@ add_test (NAME ClientTest COMMAND timeout 60s ./ClientTest)
 add_executable (TargetTest TargetTest.cpp)
 target_link_libraries (TargetTest PRIVATE Catch2::Catch2WithMain warabi-server warabi-client warabi-admin fmt::fmt)
 add_test (NAME TargetTest COMMAND timeout 60s ./TargetTest)
+
+add_executable (ProviderTest ProviderTest.cpp)
+target_link_libraries (ProviderTest PRIVATE Catch2::Catch2WithMain warabi-server warabi-admin fmt::fmt)
+add_test (NAME ProviderTest COMMAND timeout 60s ./ProviderTest)
+
