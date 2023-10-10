@@ -48,17 +48,16 @@ struct PmemRegion : public WritableRegion, public ReadableRegion {
     RegionID         m_id;
     char*            m_region_ptr;
 
-    Result<std::vector<std::pair<void*, size_t>>> convertToSegments(
+    std::vector<std::pair<void*, size_t>> convertToSegments(
         const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes) {
-        Result<std::vector<std::pair<void*, size_t>>> result;
-        auto& segments = result.value();
+        std::vector<std::pair<void*, size_t>> segments;
         segments.reserve(regionOffsetSizes.size());
         for(size_t i=0; i < regionOffsetSizes.size(); ++i) {
             if(regionOffsetSizes[i].second == 0) continue;
             segments.push_back({m_region_ptr + regionOffsetSizes[i].first,
                                 regionOffsetSizes[i].second});
         }
-        return result;
+        return segments;
     }
 
     Result<RegionID> getRegionID() override {
@@ -76,16 +75,11 @@ struct PmemRegion : public WritableRegion, public ReadableRegion {
         (void)persist;
         Result<bool> result;
         auto segments = convertToSegments(regionOffsetSizes);
-        if(!segments.success()) {
-            result.error() = segments.error();
-            result.success() = false;
-            return result;
-        }
-        if(segments.value().size() == 0) return result;
+        if(segments.size() == 0) return result;
         size_t totalSize = std::accumulate(
-            segments.value().begin(), segments.value().end(), (size_t)0,
+            segments.begin(), segments.end(), (size_t)0,
             [](size_t acc, const auto& pair) { return acc + pair.second; });
-        auto localBulk = m_engine.expose(segments.value(), thallium::bulk_mode::write_only);
+        auto localBulk = m_engine.expose(segments, thallium::bulk_mode::write_only);
         localBulk << remoteBulk.on(address)(remoteBulkOffset, totalSize);
         return result;
     }
@@ -96,20 +90,15 @@ struct PmemRegion : public WritableRegion, public ReadableRegion {
         (void)persist;
         Result<bool> result;
         auto segments = convertToSegments(regionOffsetSizes);
-        if(!segments.success()) {
-            result.error() = segments.error();
-            result.success() = false;
-            return result;
-        }
         size_t offset = 0;
         const char* ptr = (const char*)data;
         if(persist) {
-            for(auto& segment : segments.value()) {
+            for(auto& segment : segments) {
                 pmemobj_memcpy_persist(m_pmem_pool, segment.first, ptr + offset, segment.second);
                 offset += segment.second;
             }
         } else {
-            for(auto& segment : segments.value()) {
+            for(auto& segment : segments) {
                 std::memcpy(segment.first, ptr + offset, segment.second);
                 offset += segment.second;
             }
@@ -135,16 +124,11 @@ struct PmemRegion : public WritableRegion, public ReadableRegion {
             size_t remoteBulkOffset) override {
         Result<bool> result;
         auto segments = convertToSegments(regionOffsetSizes);
-        if(!segments.success()) {
-            result.error() = segments.error();
-            result.success() = false;
-            return result;
-        }
-        if(segments.value().size() == 0) return result;
+        if(segments.size() == 0) return result;
         size_t totalSize = std::accumulate(
-            segments.value().begin(), segments.value().end(), (size_t)0,
+            segments.begin(), segments.end(), (size_t)0,
             [](size_t acc, const auto& pair) { return acc + pair.second; });
-        auto localBulk = m_engine.expose(segments.value(), thallium::bulk_mode::read_only);
+        auto localBulk = m_engine.expose(segments, thallium::bulk_mode::read_only);
         localBulk >> remoteBulk.on(address)(remoteBulkOffset, totalSize);
         return result;
      }
@@ -154,15 +138,10 @@ struct PmemRegion : public WritableRegion, public ReadableRegion {
             void* data) override {
         Result<bool> result;
         auto segments = convertToSegments(regionOffsetSizes);
-        if(!segments.success()) {
-            result.error() = segments.error();
-            result.success() = false;
-            return result;
-        }
-        if(segments.value().size() == 0) return result;
+        if(segments.size() == 0) return result;
         size_t offset = 0;
         char* ptr = (char*)data;
-        for(auto& segment : segments.value()) {
+        for(auto& segment : segments) {
             std::memcpy(ptr + offset, segment.first, segment.second);
             offset += segment.second;
         }
