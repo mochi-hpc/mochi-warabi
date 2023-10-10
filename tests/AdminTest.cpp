@@ -57,6 +57,21 @@ TEST_CASE("Admin tests", "[admin]") {
 
             /* destroy a target with an ID that does not exist */
             REQUIRE_THROWS_AS(admin.destroyTarget(addr, 0, bad_id), warabi::Exception);
+
+            /* add a transfer manager */
+            REQUIRE_NOTHROW(admin.addTransferManager(addr, 0, "my_tm", "__default__", "{}"));
+
+            /* add a transfer manager with a name that already exists */
+            REQUIRE_THROWS_AS(admin.addTransferManager(addr, 0, "my_tm", "__default__", "{}"),
+                              warabi::Exception);
+
+            /* add a transfer manager with an invalid type */
+            REQUIRE_THROWS_AS(admin.addTransferManager(addr, 0, "my_tm2", "bla", "{}"),
+                              warabi::Exception);
+
+            /* add a transfer manager with an invalid config */
+            REQUIRE_THROWS_AS(admin.addTransferManager(addr, 0, "my_tm2", "__default__", "{["),
+                              warabi::Exception);
         }
     }
 }

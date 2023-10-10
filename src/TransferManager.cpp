@@ -16,15 +16,7 @@ Result<std::unique_ptr<TransferManager>> TransferManagerFactory::createTransferM
         const std::string& name,
         const tl::engine& engine,
         const json& config) {
-    auto it = instance().create_fn.find(name);
-    if(it == instance().create_fn.end()) {
-        Result<std::unique_ptr<TransferManager>> result;
-        result.success() = false;
-        result.error() = fmt::format("Unknown transfer manager type \"{}\"", name);
-        return result;
-    }
-    auto& f = it->second;
-    return f(engine, config);
+    return instance().create_fn[name](engine, config);
 }
 
 Result<bool> TransferManagerFactory::validateConfig(
