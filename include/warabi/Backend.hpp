@@ -7,6 +7,7 @@
 #define __WARABI_BACKEND_HPP
 
 #include <warabi/Result.hpp>
+#include <warabi/Migration.hpp>
 #include <unordered_set>
 #include <unordered_map>
 #include <functional>
@@ -189,6 +190,12 @@ class Backend {
      * whether the database was successfully destroyed.
      */
     virtual Result<bool> destroy() = 0;
+
+    /**
+     * @brief Create a MigrationHandle to start a migration of the
+     * target to another provider.
+     */
+    virtual Result<std::unique_ptr<MigrationHandle>> startMigration() = 0;
 
 };
 

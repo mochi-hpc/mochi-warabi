@@ -199,6 +199,14 @@ Result<bool> MemoryTarget::erase(const RegionID& region_id) {
     return result;
 }
 
+Result<std::unique_ptr<MigrationHandle>> MemoryTarget::startMigration() {
+    Result<std::unique_ptr<MigrationHandle>> result;
+    result.success() = false;
+    result.error() = "startMigration operation not implemented";
+    // TODO
+    return result;
+}
+
 Result<std::unique_ptr<warabi::Backend>> MemoryTarget::create(const thallium::engine& engine, const json& config) {
     Result<std::unique_ptr<warabi::Backend>> result;
     result.value() = std::unique_ptr<warabi::Backend>(new MemoryTarget(engine, config));

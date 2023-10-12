@@ -85,6 +85,11 @@ class PmemTarget : public warabi::Backend {
     Result<bool> destroy() override;
 
     /**
+     * @brief Start a migration.
+     */
+    Result<std::unique_ptr<MigrationHandle>> startMigration() override;
+
+    /**
      * @brief Static factory function used by the TargetFactory to
      * create a PmemTarget.
      *

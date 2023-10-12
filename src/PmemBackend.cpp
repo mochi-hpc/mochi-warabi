@@ -225,6 +225,14 @@ Result<bool> PmemTarget::erase(const RegionID& region_id) {
     return result;
 }
 
+Result<std::unique_ptr<MigrationHandle>> PmemTarget::startMigration() {
+    Result<std::unique_ptr<MigrationHandle>> result;
+    result.success() = false;
+    result.error() = "startMigration operation not implemented";
+    // TODO
+    return result;
+}
+
 Result<std::unique_ptr<warabi::Backend>> PmemTarget::create(const thallium::engine& engine, const json& config) {
     const auto& path = config["path"].get_ref<const std::string&>();
     size_t create_if_missing_with_size = config.value("create_if_missing_with_size", 0);

@@ -11,6 +11,7 @@
 #include <string>
 #include <memory>
 #include <warabi/Exception.hpp>
+#include <warabi/MigrationOptions.hpp>
 #include <warabi/UUID.hpp>
 
 namespace warabi {
@@ -124,11 +125,27 @@ class Admin {
      * @param config JSON configuration for the target.
      */
     UUID addTarget(const std::string& address,
-                      uint16_t provider_id,
-                      const std::string& type,
-                      const json& config) const {
+                   uint16_t provider_id,
+                   const std::string& type,
+                   const json& config) const {
         return addTarget(address, provider_id, type, config.dump());
     }
+
+    /**
+     * @brief Migrate the target to a different provider.
+     *
+     * @param address Address
+     * @param provider_id
+     * @param target_id
+     * @param dest_address
+     * @param dest_provider_id
+     */
+    void migrateTarget(const std::string& address,
+                       uint16_t provider_id,
+                       const UUID& target_id,
+                       const std::string& dest_address,
+                       uint16_t dest_provider_id,
+                       const MigrationOptions& options = MigrationOptions{}) const;
 
     /**
      * @brief Removes an open target in the target provider.

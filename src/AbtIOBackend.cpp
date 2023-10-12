@@ -329,6 +329,14 @@ Result<bool> AbtIOTarget::erase(const RegionID& region_id) {
     return result;
 }
 
+Result<std::unique_ptr<MigrationHandle>> AbtIOTarget::startMigration() {
+    Result<std::unique_ptr<MigrationHandle>> result;
+    result.success() = false;
+    result.error() = "startMigration operation not implemented";
+    // TODO
+    return result;
+}
+
 Result<std::unique_ptr<warabi::Backend>> AbtIOTarget::create(const thallium::engine& engine, const json& cfg) {
     auto config              = cfg;
     const auto& path         = config["path"].get_ref<const std::string&>();

@@ -14,6 +14,7 @@
 #include "warabi/Backend.hpp"
 #include "warabi/UUID.hpp"
 #include "warabi/TransferManager.hpp"
+#include "warabi/MigrationOptions.hpp"
 #include "BufferWrapper.hpp"
 
 #include <thallium.hpp>
@@ -169,6 +170,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     AutoDeregistering m_remove_target;
     AutoDeregistering m_destroy_target;
     AutoDeregistering m_add_transfer_manager;
+    AutoDeregistering m_migrate_target;
     // Client RPC
     AutoDeregistering m_check_target;
     AutoDeregistering m_create;
@@ -195,6 +197,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     , m_remove_target(define("warabi_remove_target", &ProviderImpl::removeTargetRPC, pool))
     , m_destroy_target(define("warabi_destroy_target", &ProviderImpl::destroyTargetRPC, pool))
     , m_add_transfer_manager(define("warabi_add_transfer_manager", &ProviderImpl::addTransferManagerRPC, pool))
+    , m_migrate_target(define("warabi_migrate_target", &ProviderImpl::migrateTargetRPC, pool))
     , m_check_target(define("warabi_check_target", &ProviderImpl::checkTargetRPC, pool))
     , m_create(define("warabi_create",  &ProviderImpl::createRPC, pool))
     , m_write(define("warabi_write",  &ProviderImpl::writeRPC, pool))
@@ -495,6 +498,15 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         AutoResponse<decltype(result)> response{req, result};
 
         result = addTransferManager(name, type, config);
+    }
+
+    void migrateTargetRPC(const tl::request& req,
+                          const UUID& target_id,
+                          const std::string& dest_address,
+                          uint16_t dest_provider_id,
+                          const MigrationOptions& options) {
+        trace("Received migrateTargetRPC request");
+        // TODO
     }
 
     void checkTargetRPC(const tl::request& req,
