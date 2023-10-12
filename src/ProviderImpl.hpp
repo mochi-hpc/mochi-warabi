@@ -6,11 +6,13 @@
 #ifndef __WARABI_PROVIDER_IMPL_H
 #define __WARABI_PROVIDER_IMPL_H
 
+#include "config.h"
 #include <valijson/adapters/nlohmann_json_adapter.hpp>
 #include <valijson/schema.hpp>
 #include <valijson/schema_parser.hpp>
 #include <valijson/validator.hpp>
 
+#include "warabi/Provider.hpp"
 #include "warabi/Backend.hpp"
 #include "warabi/UUID.hpp"
 #include "warabi/TransferManager.hpp"
@@ -26,6 +28,11 @@
 #include <spdlog/spdlog.h>
 
 #include <tuple>
+
+#ifdef WARABI_HAS_REMI
+#include <remi/remi-client.h>
+#include <remi/remi-server.h>
+#endif
 
 #define FIND_TARGET(__var__) \
         std::shared_ptr<TargetEntry> __var__;\
@@ -165,6 +172,8 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
 
     tl::engine           m_engine;
     tl::pool             m_pool;
+    remi_client_t        m_remi_client;
+    remi_provider_t      m_remi_provier;
     // Admin RPC
     AutoDeregistering m_add_target;
     AutoDeregistering m_remove_target;
@@ -189,10 +198,18 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     std::unordered_map<std::string, std::shared_ptr<TransferManager>> m_transfer_managers;
     mutable tl::mutex                                                 m_transfer_managers_mtx;
 
-    ProviderImpl(const tl::engine& engine, uint16_t provider_id, const std::string& config, const tl::pool& pool)
+    ProviderImpl(
+            const tl::engine& engine,
+            uint16_t provider_id,
+            const std::string& config,
+            const tl::pool& pool,
+            remi_client_t remi_cl,
+            remi_provider_t remi_pr)
     : tl::provider<ProviderImpl>(engine, provider_id)
     , m_engine(engine)
     , m_pool(pool)
+    , m_remi_client(remi_cl)
+    , m_remi_provier(remi_pr)
     , m_add_target(define("warabi_add_target", &ProviderImpl::addTargetRPC, pool))
     , m_remove_target(define("warabi_remove_target", &ProviderImpl::removeTargetRPC, pool))
     , m_destroy_target(define("warabi_destroy_target", &ProviderImpl::destroyTargetRPC, pool))
@@ -505,8 +522,23 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
                           const std::string& dest_address,
                           uint16_t dest_provider_id,
                           const MigrationOptions& options) {
-        trace("Received migrateTargetRPC request");
-        // TODO
+        trace("Received migrateTarget request for target {}", target_id.to_string());
+        Result<bool> result;
+#ifndef WARABI_HAS_REMI
+        AutoResponse<decltype(result)> response{req, result};
+        result.error() = "Warabi was not compiled with REMI support";
+        result.success() = false;
+#else
+        FIND_TARGET(target);
+        auto startMigration = target->m_target->startMigration();
+        if(!startMigration.success()) {
+            result.error() = startMigration.error();
+            result.success() = false;
+            return;
+        }
+
+#endif
+        trace("Sucessfully executed migrateTarget for target {}", target_id.to_string());
     }
 
     void checkTargetRPC(const tl::request& req,

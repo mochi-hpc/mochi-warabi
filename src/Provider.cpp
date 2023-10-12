@@ -13,13 +13,25 @@ namespace tl = thallium;
 
 namespace warabi {
 
-Provider::Provider(const tl::engine& engine, uint16_t provider_id, const std::string& config, const tl::pool& p)
-: self(std::make_shared<ProviderImpl>(engine, provider_id, config, p)) {
+Provider::Provider(
+        const tl::engine& engine,
+        uint16_t provider_id,
+        const std::string& config,
+        const tl::pool& p,
+        remi_client_t remi_cl,
+        remi_provider_t remi_pr)
+: self(std::make_shared<ProviderImpl>(engine, provider_id, config, p, remi_cl, remi_pr)) {
     self->get_engine().push_finalize_callback(this, [p=this]() { p->self.reset(); });
 }
 
-Provider::Provider(margo_instance_id mid, uint16_t provider_id, const std::string& config, const tl::pool& p)
-: self(std::make_shared<ProviderImpl>(mid, provider_id, config, p)) {
+Provider::Provider(
+        margo_instance_id mid,
+        uint16_t provider_id,
+        const std::string& config,
+        const tl::pool& p,
+        remi_client_t remi_cl,
+        remi_provider_t remi_pr)
+: self(std::make_shared<ProviderImpl>(mid, provider_id, config, p, remi_cl, remi_pr)) {
     self->get_engine().push_finalize_callback(this, [p=this]() { p->self.reset(); });
 }
 
@@ -36,7 +48,7 @@ Provider::~Provider() {
 }
 
 std::string Provider::getConfig() const {
-    return self ? self->getConfig() : "{}";
+    return self ? self->getConfig() : "null";
 }
 
 Provider::operator bool() const {

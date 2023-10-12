@@ -11,6 +11,7 @@ spack:
   - tclap
   - mochi-bedrock +abtio
   - mochi-abt-io
+  - mochi-remi
   - valijson
   concretizer:
     unify: true

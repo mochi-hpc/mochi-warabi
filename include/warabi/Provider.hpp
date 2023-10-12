@@ -9,6 +9,9 @@
 #include <thallium.hpp>
 #include <memory>
 
+typedef struct remi_client* remi_client_t;     // forward-define without including <remi-client.h>
+typedef struct remi_provider* remi_provider_t; // forward-define without including <remi-server.h>
+
 namespace warabi {
 
 namespace tl = thallium;
@@ -30,11 +33,15 @@ class Provider {
      * @param provider_id Provider id.
      * @param config JSON-formatted configuration.
      * @param pool Argobots pool to use to handle RPCs.
+     * @param remi_cl Remi client for migration.
+     * @param remi_pr Remi provider for migration.
      */
     Provider(const tl::engine& engine,
              uint16_t provider_id = 0,
              const std::string& config = "",
-             const tl::pool& pool = tl::pool());
+             const tl::pool& pool = tl::pool(),
+             remi_client_t remi_cl = nullptr,
+             remi_provider_t remi_pr = nullptr);
 
     /**
      * @brief Constructor.
@@ -43,11 +50,15 @@ class Provider {
      * @param provider_id Provider id.
      * @param config JSON-formatted configuration.
      * @param pool Argobots pool to use to handle RPCs.
+     * @param remi_cl Remi client for migration.
+     * @param remi_pr Remi provider for migration.
      */
     Provider(margo_instance_id mid,
              uint16_t provider_id = 0,
              const std::string& config = "",
-             const tl::pool& pool = tl::pool());
+             const tl::pool& pool = tl::pool(),
+             remi_client_t remi_cl = nullptr,
+             remi_provider_t remi_pr = nullptr);
 
     /**
      * @brief Copy-constructor is deleted.

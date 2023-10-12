@@ -13,6 +13,7 @@ option (ENABLE_TESTS    "Build tests" OFF)
 option (ENABLE_EXAMPLES "Build examples" OFF)
 option (ENABLE_BEDROCK  "Build bedrock module" OFF)
 option (ENABLE_COVERAGE "Build with coverage" OFF)
+option (ENABLE_REMI     "Build with REMI support" OFF)
 
 # add our cmake module directory to the path
 set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
@@ -67,6 +68,12 @@ pkg_check_modules (abt-io REQUIRED IMPORTED_TARGET abt-io)
 # search of bedrock if needed
 if (${ENABLE_BEDROCK})
     find_package (bedrock REQUIRED)
+endif ()
+if (${ENABLE_REMI})
+    find_package (remi REQUIRED)
+    set (WARABI_HAS_REMI ON)
+else ()
+    set (WARABI_HAS_REMI OFF)
 endif ()
 
 # library version set here (e.g. for shared libs).

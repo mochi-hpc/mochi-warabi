@@ -77,5 +77,6 @@ jobs:
         cmake .. -DENABLE_TESTS=ON \
                  -DENABLE_EXAMPLES=ON \
                  -DENABLE_BEDROCK=ON \
+                 -DENABLE_REMI=ON \
                  -DCMAKE_BUILD_TYPE=Debug &&
         make && make test

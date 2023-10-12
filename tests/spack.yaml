@@ -12,6 +12,7 @@ spack:
   - tclap
   - mochi-bedrock +abtio ^mpich
   - mercury ~boostsys ~checksum ^libfabric fabrics=tcp,rxm
+  - mochi-remi
   - valijson
   concretizer:
     unify: true
