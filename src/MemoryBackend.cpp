@@ -207,6 +207,14 @@ Result<std::unique_ptr<MigrationHandle>> MemoryTarget::startMigration() {
     return result;
 }
 
+Result<std::unique_ptr<warabi::Backend>> MemoryTarget::recover(
+        const thallium::engine& engine, const json& config,
+        const std::vector<std::string>& filenames) {
+    Result<std::unique_ptr<warabi::Backend>> result;
+    // TODO
+    return result;
+}
+
 Result<std::unique_ptr<warabi::Backend>> MemoryTarget::create(const thallium::engine& engine, const json& config) {
     Result<std::unique_ptr<warabi::Backend>> result;
     result.value() = std::unique_ptr<warabi::Backend>(new MemoryTarget(engine, config));

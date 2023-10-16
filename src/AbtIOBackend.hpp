@@ -105,6 +105,13 @@ class AbtIOTarget : public warabi::Backend {
     static Result<std::unique_ptr<warabi::Backend>> create(const thallium::engine& engine, const json& config);
 
     /**
+     * @brief Recovers after migration.
+     */
+    static Result<std::unique_ptr<warabi::Backend>> recover(
+            const thallium::engine& engine, const json& config,
+            const std::vector<std::string>& filenames);
+
+    /**
      * @brief Validates that the configuration is correct for this backend.
      */
     static Result<bool> validate(const json& config);

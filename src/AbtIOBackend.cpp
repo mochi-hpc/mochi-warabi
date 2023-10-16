@@ -337,6 +337,14 @@ Result<std::unique_ptr<MigrationHandle>> AbtIOTarget::startMigration() {
     return result;
 }
 
+Result<std::unique_ptr<warabi::Backend>> AbtIOTarget::recover(
+        const thallium::engine& engine, const json& config,
+        const std::vector<std::string>& filenames) {
+    Result<std::unique_ptr<warabi::Backend>> result;
+    // TODO
+    return result;
+}
+
 Result<std::unique_ptr<warabi::Backend>> AbtIOTarget::create(const thallium::engine& engine, const json& cfg) {
     auto config              = cfg;
     const auto& path         = config["path"].get_ref<const std::string&>();

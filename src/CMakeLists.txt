@@ -30,10 +30,16 @@ set (warabi-pkg "share/cmake/warabi")
 set (warabi-vers "${WARABI_VERSION_MAJOR}.${WARABI_VERSION_MINOR}")
 
 # server library
-add_library (warabi-server ${server-src-files} ${dummy-src-files})
+if (${ENABLE_REMI})
+    set (OPTIONAL_REMI remi)
+else ()
+    set (OPTIONAL_REMI)
+endif ()
+add_library (warabi-server ${server-src-files})
 target_link_libraries (warabi-server
     PUBLIC thallium PkgConfig::uuid nlohmann_json::nlohmann_json
-    PRIVATE spdlog::spdlog fmt::fmt PkgConfig::libpmemobj PkgConfig::abt-io stdc++fs coverage_config)
+    PRIVATE ${OPTIONAL_REMI} spdlog::spdlog fmt::fmt PkgConfig::libpmemobj
+            PkgConfig::abt-io stdc++fs coverage_config)
 target_include_directories (warabi-server PUBLIC $<INSTALL_INTERFACE:include>)
 target_include_directories (warabi-server BEFORE PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>)

@@ -233,6 +233,14 @@ Result<std::unique_ptr<MigrationHandle>> PmemTarget::startMigration() {
     return result;
 }
 
+Result<std::unique_ptr<warabi::Backend>> PmemTarget::recover(
+         const thallium::engine& engine, const json& config,
+         const std::vector<std::string>& filenames) {
+    Result<std::unique_ptr<warabi::Backend>> result;
+    // TODO
+    return result;
+}
+
 Result<std::unique_ptr<warabi::Backend>> PmemTarget::create(const thallium::engine& engine, const json& config) {
     const auto& path = config["path"].get_ref<const std::string&>();
     size_t create_if_missing_with_size = config.value("create_if_missing_with_size", 0);

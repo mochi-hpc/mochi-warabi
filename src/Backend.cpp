@@ -12,10 +12,19 @@ namespace warabi {
 
 using json = nlohmann::json;
 
-Result<std::unique_ptr<Backend>> TargetFactory::createTarget(const std::string& backend_name,
-                                                             const tl::engine& engine,
-                                                             const json& config) {
+Result<std::unique_ptr<Backend>> TargetFactory::createTarget(
+        const std::string& backend_name,
+        const tl::engine& engine,
+        const json& config) {
     return instance().create_fn[backend_name](engine, config);
+}
+
+Result<std::unique_ptr<Backend>> TargetFactory::recoverTarget(
+        const std::string& backend_name,
+        const thallium::engine& engine,
+        const json& config,
+        const std::vector<std::string>& filenames) {
+    return instance().recover_fn[backend_name](engine, config, filenames);
 }
 
 Result<bool> TargetFactory::validateConfig(const std::string& backend_name,

@@ -18,6 +18,7 @@
 #include "warabi/TransferManager.hpp"
 #include "warabi/MigrationOptions.hpp"
 #include "BufferWrapper.hpp"
+#include "Defer.hpp"
 
 #include <thallium.hpp>
 #include <thallium/serialization/stl/string.hpp>
@@ -173,7 +174,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     tl::engine           m_engine;
     tl::pool             m_pool;
     remi_client_t        m_remi_client;
-    remi_provider_t      m_remi_provier;
+    remi_provider_t      m_remi_provider;
     // Admin RPC
     AutoDeregistering m_add_target;
     AutoDeregistering m_remove_target;
@@ -209,7 +210,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     , m_engine(engine)
     , m_pool(pool)
     , m_remi_client(remi_cl)
-    , m_remi_provier(remi_pr)
+    , m_remi_provider(remi_pr)
     , m_add_target(define("warabi_add_target", &ProviderImpl::addTargetRPC, pool))
     , m_remove_target(define("warabi_remove_target", &ProviderImpl::removeTargetRPC, pool))
     , m_destroy_target(define("warabi_destroy_target", &ProviderImpl::destroyTargetRPC, pool))
@@ -239,6 +240,33 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
             throw Exception(err);
         }
 
+#ifdef WARABI_HAS_REMI
+        if(m_remi_client && !m_remi_provider) {
+            warn("Warabi provider initialized with only a REMI client"
+                 " will only be able to *send* targets to other providers");
+        } else if(!m_remi_client && m_remi_provider) {
+            warn("Yokan provider initialized with only a REMI provider"
+                 " will only be able to *receive* targets from other providers");
+        }
+        if(m_remi_provider) {
+            std::string remi_class = fmt::format("warabi/{}", provider_id);
+            int rret = remi_provider_register_migration_class(
+                    m_remi_provider, remi_class.c_str(),
+                    beforeMigrationCallback,
+                    afterMigrationCallback, nullptr, this);
+            if(rret != REMI_SUCCESS) {
+                throw Exception(fmt::format(
+                    "Failed to register migration class in REMI:"
+                    " remi_provider_register_migration_class returned {}",
+                    rret));
+            }
+        }
+#else
+        if(m_remi_client || m_remi_provider) {
+            error("Provided REMI client or provider will be ignored because"
+                  " Warabi wasn't built with REMI support");
+        }
+#endif
         static json schemaDocument = json::parse(configSchema);
 
         valijson::Schema schemaValidator;
@@ -524,19 +552,87 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
                           const MigrationOptions& options) {
         trace("Received migrateTarget request for target {}", target_id.to_string());
         Result<bool> result;
-#ifndef WARABI_HAS_REMI
         AutoResponse<decltype(result)> response{req, result};
+#ifndef WARABI_HAS_REMI
         result.error() = "Warabi was not compiled with REMI support";
         result.success() = false;
 #else
+
+        #define HANDLE_REMI_ERROR(rret, ...) do {          \
+            if(rret != REMI_SUCCESS) {                     \
+                result.success() = false;                  \
+                result.error() = fmt::format(__VA_ARGS__); \
+                return;                                    \
+            }                                              \
+        } while(0)
+
+        // lookup destination address
+        tl::endpoint dest_endpoint;
+        try {
+            dest_endpoint = m_engine.lookup(dest_address);
+        } catch(const std::exception& ex) {
+            result.success() = false;
+            result.error() = fmt::format("Failed to lookup destination address: {}", ex.what());
+            return;
+        }
+        // create remi provider handle
+        remi_provider_handle_t remi_ph = NULL;
+        int rret = remi_provider_handle_create(
+                m_remi_client, dest_endpoint.get_addr(), dest_provider_id, &remi_ph);
+        HANDLE_REMI_ERROR(rret, "Failed to create REMI provider handle");
+        DEFER(remi_provider_handle_release(remi_ph));
+        // find target
         FIND_TARGET(target);
-        auto startMigration = target->m_target->startMigration();
+        // get a MigrationHandle
+        auto& tg = target->m_target;
+        auto startMigration = tg->startMigration();
         if(!startMigration.success()) {
             result.error() = startMigration.error();
             result.success() = false;
             return;
         }
-
+        auto& mh = startMigration.value();
+        // create REMI fileset
+        remi_fileset_t fileset = REMI_FILESET_NULL;
+        std::string remi_class = fmt::format("warabi/{}", dest_provider_id);
+        rret = remi_fileset_create(remi_class.c_str(), mh->getRoot().c_str(), &fileset);
+        HANDLE_REMI_ERROR(rret, "Failed to create REMI fileset");
+        DEFER(remi_fileset_free(fileset));
+        // fill REMI fileset
+        for(const auto& file : mh->getFiles()) {
+            if(!file.empty() && file.back() == '/') {
+                rret = remi_fileset_register_directory(fileset, file.c_str());
+                HANDLE_REMI_ERROR(rret, "Failed to register directory {} in REMI fileset", file);
+            } else {
+                rret = remi_fileset_register_file(fileset, file.c_str());
+                HANDLE_REMI_ERROR(rret, "Failed to register file {} in REMI fileset", file);
+            }
+        }
+        // register REMI metadata
+        rret = remi_fileset_register_metadata(fileset, "uuid", target_id.to_string().c_str());
+        HANDLE_REMI_ERROR(rret, "Failed to register metadata in REMI fileset");
+        rret = remi_fileset_register_metadata(fileset, "config", tg->getConfig().c_str());
+        HANDLE_REMI_ERROR(rret, "Failed to register metadata in REMI fileset");
+        rret = remi_fileset_register_metadata(fileset, "type", tg->name().c_str());
+        HANDLE_REMI_ERROR(rret, "Failed to register metadata in REMI fileset");
+        rret = remi_fileset_register_metadata(fileset, "migration_config", options.extraConfig.c_str());
+        HANDLE_REMI_ERROR(rret, "Failed to register metadata in REMI fileset");
+        // set block transfer size
+        if(options.transferSize) {
+            rret = remi_fileset_set_xfer_size(fileset, options.transferSize);
+            HANDLE_REMI_ERROR(rret, "Failed to set transfer size for REMI fileset");
+        }
+        // issue migration
+        int remi_status = 0;
+        rret = remi_fileset_migrate(remi_ph, fileset, options.newRoot.c_str(),
+                REMI_KEEP_SOURCE, REMI_USE_MMAP, &remi_status);
+        HANDLE_REMI_ERROR(rret, "REMI failed to migrate fileset");
+        if(remi_status) {
+            result.success() = false;
+            result.error() = fmt::format("Migration failed with status {}", remi_status);
+            mh->cancel();
+            return;
+        }
 #endif
         trace("Sucessfully executed migrateTarget for target {}", target_id.to_string());
     }
@@ -738,6 +834,122 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         FIND_TARGET(target);
         result = (*target)->erase(region_id);
         trace("Successfully executed erase on target {}", target_id.to_string());
+    }
+
+    static int32_t beforeMigrationCallback(remi_fileset_t fileset, void* uargs) {
+        // the goal this callback is just to make sure the required metadata
+        // is available and there  isn't any database with the same name yet,
+        // so we can do the migration safely.
+        ProviderImpl* provider = static_cast<ProviderImpl*>(uargs);
+
+        const char* uuid = nullptr;
+        const char* type = nullptr;
+        const char* config = nullptr;
+        const char* migration_config = nullptr;
+
+        int rret;
+        rret = remi_fileset_get_metadata(fileset, "uuid", &uuid);
+        if(rret != REMI_SUCCESS) return rret;
+        rret = remi_fileset_get_metadata(fileset, "type", &type);
+        if(rret != REMI_SUCCESS) return rret;
+        rret = remi_fileset_get_metadata(fileset, "config", &config);
+        if(rret != REMI_SUCCESS) return rret;
+        rret = remi_fileset_get_metadata(fileset, "migration_config", &migration_config);
+        if(rret != REMI_SUCCESS) return rret;
+
+        auto target_id = UUID::from_string(uuid);
+        json config_json;
+        json migration_config_json;
+        try {
+            config_json = json::parse(config);
+            migration_config_json = json::parse(migration_config);
+        } catch (...) {
+            return 1;
+        }
+        config_json.update(migration_config_json, true);
+        if(config_json.contains("transfer_manager")) {
+            auto tm_name = config_json["transfer_manager"].get<std::string>();
+            std::unique_lock<tl::mutex> lock{provider->m_transfer_managers_mtx};
+            auto it = provider->m_transfer_managers.find(tm_name);
+            if(it == provider->m_transfer_managers.end())
+                return 2;
+        }
+        auto it = provider->m_targets.find(target_id);
+        if(it != provider->m_targets.end())
+            return 3;
+        if(!TargetFactory::validateConfig(type, config_json).success())
+            return 4;
+        return 0;
+    }
+
+    static int32_t afterMigrationCallback(remi_fileset_t fileset, void* uargs) {
+        ProviderImpl* provider = static_cast<ProviderImpl*>(uargs);
+
+        const char* uuid = nullptr;
+        const char* type = nullptr;
+        const char* config = nullptr;
+        const char* migration_config = nullptr;
+
+        int rret;
+        rret = remi_fileset_get_metadata(fileset, "uuid", &uuid);
+        if(rret != REMI_SUCCESS) return rret;
+        rret = remi_fileset_get_metadata(fileset, "type", &type);
+        if(rret != REMI_SUCCESS) return rret;
+        rret = remi_fileset_get_metadata(fileset, "config", &config);
+        if(rret != REMI_SUCCESS) return rret;
+        rret = remi_fileset_get_metadata(fileset, "migration_config", &migration_config);
+        if(rret != REMI_SUCCESS) return rret;
+
+        auto target_id = UUID::from_string(uuid);
+        json config_json;
+        json migration_config_json;
+        try {
+            config_json = json::parse(config);
+            migration_config_json = json::parse(migration_config);
+        } catch (...) {
+            return 1;
+        }
+        config_json.update(migration_config_json, true);
+
+        std::shared_ptr<TransferManager> tm;
+        std::string tm_name;
+        if(config_json.contains("transfer_manager")) {
+            tm_name = config_json["transfer_manager"].get<std::string>();
+            std::unique_lock<tl::mutex> lock{provider->m_transfer_managers_mtx};
+            auto it = provider->m_transfer_managers.find(tm_name);
+            tm = it->second;
+        } else {
+            tm_name = "__default__";
+            tm = provider->m_transfer_managers["__default__"];
+        }
+
+        std::vector<std::string> files;
+        rret = remi_fileset_walkthrough(fileset,
+            [](const char* filename, void* uargs) {
+                static_cast<std::list<std::string>*>(uargs)->emplace_back(filename);
+            }, &files);
+        if(rret != REMI_SUCCESS) return 2;
+
+        size_t root_size = 0;
+        std::vector<char> root;
+        rret = remi_fileset_get_root(fileset, nullptr, &root_size);
+        if(rret != REMI_SUCCESS) return 3;
+        root.resize(root_size);
+        rret = remi_fileset_get_root(fileset, root.data(), &root_size);
+        if(rret != REMI_SUCCESS) return 3;
+
+        auto root_str = std::string{root.data()};
+        for(auto& filename : files) {
+            filename = root_str + "/" + filename;
+        }
+
+        auto target = TargetFactory::recoverTarget(type, provider->m_engine, config_json, files);
+        if(!target.success()) return 4;
+
+        provider->m_targets[target_id] = std::make_shared<TargetEntry>(
+                std::shared_ptr<Backend>(std::move(target.value())), tm, tm_name);
+
+        return 0;
     }
 
 };

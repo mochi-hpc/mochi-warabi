@@ -230,6 +230,22 @@ class TargetFactory {
                      const json& config);
 
     /**
+     * @brief Recovers a target after migration.
+     *
+     * @param backend_name Name of the backend to use.
+     * @param engine Thallium engine.
+     * @param config Configuration object to pass to the backend's create function.
+     * @param filenames List of files that were migrated.
+     *
+     * @return a unique_ptr to the recovered Target.
+     */
+    static Result<std::unique_ptr<Backend>>
+        recoverTarget(const std::string& backend_name,
+                     const thallium::engine& engine,
+                     const json& config,
+                     const std::vector<std::string>& filenames);
+
+    /**
      * @brief Validate that the JSON configuration has the expected schema.
      *
      * @param backend_name Name of the backend to use.
@@ -253,6 +269,10 @@ class TargetFactory {
         std::function<Result<std::unique_ptr<Backend>>(const thallium::engine&, const json&)>> create_fn;
 
     std::unordered_map<std::string,
+        std::function<Result<std::unique_ptr<Backend>>(
+            const thallium::engine&, const json&, const std::vector<std::string>&)>> recover_fn;
+
+    std::unordered_map<std::string,
         std::function<Result<bool>(const json&)>> validate_fn;
 };
 
@@ -274,6 +294,13 @@ class __WarabiBackendRegistration {
         warabi::TargetFactory::instance().create_fn[backend_name] =
             [backend_name](const thallium::engine& engine, const json& config) {
                 auto p = BackendType::create(engine, config);
+                if(p.success()) p.value()->m_name = backend_name;
+                return p;
+        };
+        warabi::TargetFactory::instance().recover_fn[backend_name] =
+            [backend_name](const thallium::engine& engine, const json& config,
+                           const std::vector<std::string>& filenames) {
+                auto p = BackendType::recover(engine, config, filenames);
                 if(p.success()) p.value()->m_name = backend_name;
                 return p;
         };
