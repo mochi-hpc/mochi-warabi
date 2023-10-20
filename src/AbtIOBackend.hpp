@@ -28,6 +28,48 @@ class AbtIOTarget : public warabi::Backend {
     std::string                    m_filename;
     bool                           m_sync;
     size_t                         m_alignment;
+    thallium::rwlock               m_migration_lock;
+
+    struct AbtIOMigrationHandle : public MigrationHandle {
+
+        AbtIOTarget* m_target;
+        bool         m_remove_source;
+
+        AbtIOMigrationHandle(AbtIOTarget* target, bool removeSource)
+        : m_target(target)
+        , m_remove_source(removeSource) {
+            m_target->m_migration_lock.wrlock();
+        }
+
+        ~AbtIOMigrationHandle() {
+            if(m_remove_source) {
+                m_target->destroy();
+            }
+            m_target->m_migration_lock.unlock();
+        }
+
+        std::string getRoot() const override {
+            size_t found = m_target->m_filename.find_last_of("/");
+            if(found != std::string::npos) {
+                return m_target->m_filename.substr(0, found);
+            } else {
+                return "";
+            }
+        }
+
+        std::list<std::string> getFiles() const override {
+            size_t found = m_target->m_filename.find_last_of("/");
+            if(found != std::string::npos) {
+                return {m_target->m_filename.substr(found + 1)};
+            } else {
+                return {m_target->m_filename};
+            }
+        }
+
+        void cancel() override {
+            m_remove_source = false;
+        }
+    };
 
     /**
      * @brief Constructor.

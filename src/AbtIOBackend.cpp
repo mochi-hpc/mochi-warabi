@@ -16,6 +16,7 @@
 #include <valijson/schema_parser.hpp>
 #include <valijson/validator.hpp>
 #include "AbtIOBackend.hpp"
+#include "Defer.hpp"
 #include <fmt/format.h>
 #include <filesystem>
 #include <iostream>
@@ -53,6 +54,10 @@ struct AbtIORegion : public WritableRegion, public ReadableRegion {
     AbtIOTarget*     m_owner;
     RegionID         m_id;
     size_t           m_region_offset;
+
+    ~AbtIORegion() {
+        m_owner->m_migration_lock.unlock();
+    }
 
     Result<RegionID> getRegionID() override {
         Result<RegionID> result;
@@ -267,10 +272,12 @@ Result<std::unique_ptr<WritableRegion>> AbtIOTarget::create(size_t size) {
         result.success() = false;
         return result;
     }
+    m_migration_lock.rdlock();
     ssize_t s = abt_io_pwrite(m_abtio, m_fd, zero_block, alignedSize, offset);
     if(s != (ssize_t)alignedSize) {
         result.error() = fmt::format("abt_io_pwrite failed in create: {}", strerror(-s));
         result.success() = false;
+        m_migration_lock.unlock();
         return result;
     }
     result.value() = std::make_unique<AbtIORegion>(this, regionID, offset);
@@ -280,15 +287,18 @@ Result<std::unique_ptr<WritableRegion>> AbtIOTarget::create(size_t size) {
 Result<std::unique_ptr<WritableRegion>> AbtIOTarget::write(const RegionID& region_id, bool persist) {
     (void)persist;
     Result<std::unique_ptr<WritableRegion>> result;
+    m_migration_lock.rdlock();
     if(!m_fd) {
         result.success() = false;
         result.error() = fmt::format("File {} has been destroyed", m_filename);
+        m_migration_lock.unlock();
         return result;
     }
     auto regionOffsetSize = RegionIDtoOffsetSize(region_id);
     if(!regionOffsetSize.success()) {
         result.success() = false;
         result.error() = regionOffsetSize.error();
+        m_migration_lock.unlock();
         return result;
     }
     result.value() = std::make_unique<AbtIORegion>(
@@ -304,6 +314,7 @@ Result<std::unique_ptr<ReadableRegion>> AbtIOTarget::read(const RegionID& region
         result.error() = regionOffsetSize.error();
         return result;
     }
+    m_migration_lock.rdlock();
     result.value() = std::make_unique<AbtIORegion>(
         this, region_id, regionOffsetSize.value().first);
     return result;
@@ -317,6 +328,7 @@ Result<bool> AbtIOTarget::erase(const RegionID& region_id) {
         result.error() = regionOffsetSize.error();
         return result;
     }
+    m_migration_lock.rdlock();
     int ret = abt_io_fallocate(
         m_abtio, m_fd,
         FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
@@ -325,23 +337,91 @@ Result<bool> AbtIOTarget::erase(const RegionID& region_id) {
         result.error() = "abt_io_fallocate failed to erase region";
         result.success() = false;
     }
+    m_migration_lock.unlock();
 
     return result;
 }
 
 Result<std::unique_ptr<MigrationHandle>> AbtIOTarget::startMigration(bool removeSource) {
     Result<std::unique_ptr<MigrationHandle>> result;
-    result.success() = false;
-    result.error() = "startMigration operation not implemented";
-    // TODO
+    result.value() = std::make_unique<AbtIOMigrationHandle>(this, removeSource);
     return result;
 }
 
 Result<std::unique_ptr<warabi::Backend>> AbtIOTarget::recover(
-        const thallium::engine& engine, const json& config,
+        const thallium::engine& engine, const json& cfg,
         const std::vector<std::string>& filenames) {
     Result<std::unique_ptr<warabi::Backend>> result;
-    // TODO
+    if(filenames.size() == 0) {
+        result.error() = "No file to recover from";
+        result.success() = false;
+        return result;
+    }
+    if(filenames.size() > 1) {
+        result.error() = "AbtIO backend cannot recover from multiple files";
+        result.success() = false;
+        return result;
+    }
+    auto config              = cfg;
+    config["path"]           = filenames[0];
+    bool directio            = config.value("directio", false);
+    const auto& path         = filenames[0];
+    abt_io_instance_id abtio = ABT_IO_INSTANCE_NULL;
+
+    bool file_exists = std::filesystem::exists(path);
+    if(!file_exists) {
+        result.error() = fmt::format("File {} not found", path);
+        result.success() = false;
+        return result;
+    }
+
+    if(config.contains("abt_io")) {
+        auto abtio_config = config["abt_io"].dump();
+        struct abt_io_init_info args = {
+            abtio_config.c_str(),
+            ABT_POOL_NULL
+        };
+        abtio = abt_io_init_ext(&args);
+    } else {
+        abtio = abt_io_init(1);
+    }
+    if(abtio == ABT_IO_INSTANCE_NULL) {
+        result.success() = false;
+        result.error() = "Could not create ABT-IO instance";
+        return result;
+    }
+
+    int fd = 0;
+    int oflags = O_RDWR;
+    if(directio) oflags |= O_DIRECT;
+retry_without_odirect:
+    fd = abt_io_open(abtio, path.c_str(), oflags, 0);
+    if(fd == -EINVAL && directio) {
+        oflags = O_RDWR;
+        config["directio"] = false;
+        directio = false;
+        goto retry_without_odirect;
+    }
+
+    if(fd <= 0) {
+        result.success() = false;
+        result.error() = fmt::format(
+            "Failed to open file {} using abt_io_open: {}", path, strerror(-fd));
+        return result;
+    }
+
+    size_t file_size = 0;
+    struct stat statbuf;
+    int ret = fstat(fd, &statbuf);
+    if(ret < 0) {
+        result.success() = false;
+        result.error() = fmt::format("Could not fstat {}: {}", path, strerror(errno));
+        return result;
+    }
+    file_size = statbuf.st_size;
+
+    result.value() = std::make_unique<warabi::AbtIOTarget>(
+        engine, config, abtio, fd, file_size);
     return result;
 }
 

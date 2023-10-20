@@ -15,7 +15,7 @@
 
 TEST_CASE("Target migration test", "[migration]") {
 
-    auto target_type = GENERATE(as<std::string>{}, "pmdk");//, "abtio");
+    auto target_type = GENERATE(as<std::string>{}, "pmdk", "abtio");
 
     CAPTURE(target_type);
 

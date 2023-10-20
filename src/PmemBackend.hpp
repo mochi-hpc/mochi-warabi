@@ -68,7 +68,10 @@ class PmemTarget : public warabi::Backend {
             }
         }
 
-        void cancel() override {}
+        void cancel() override {
+            m_remove_source = false;
+            m_target->m_pmem_pool = pmemobj_open(m_target->m_filename.c_str(), nullptr);
+        }
     };
 
     public:
