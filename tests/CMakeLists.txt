@@ -14,3 +14,6 @@ add_executable (ProviderTest ProviderTest.cpp)
 target_link_libraries (ProviderTest PRIVATE Catch2::Catch2WithMain warabi-server warabi-admin fmt::fmt)
 add_test (NAME ProviderTest COMMAND timeout 60s ./ProviderTest)
 
+add_executable (MigrationTest MigrationTest.cpp)
+target_link_libraries (MigrationTest PRIVATE Catch2::Catch2WithMain warabi-server warabi-client warabi-admin fmt::fmt)
+add_test (NAME MigrationTest COMMAND timeout 60s ./MigrationTest)

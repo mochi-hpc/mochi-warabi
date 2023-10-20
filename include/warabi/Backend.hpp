@@ -194,8 +194,10 @@ class Backend {
     /**
      * @brief Create a MigrationHandle to start a migration of the
      * target to another provider.
+     *
+     * @param removeSource Whether to delete the source target after completion.
      */
-    virtual Result<std::unique_ptr<MigrationHandle>> startMigration() = 0;
+    virtual Result<std::unique_ptr<MigrationHandle>> startMigration(bool removeSource) = 0;
 
 };
 

@@ -13,16 +13,63 @@ namespace warabi {
 
 using json = nlohmann::json;
 
+struct PmemRegion;
+
 /**
  * Pmem-based implementation of an warabi Backend.
  */
 class PmemTarget : public warabi::Backend {
 
+    friend struct PmemRegion;
+
     thallium::engine               m_engine;
     json                           m_config;
     PMEMobjpool*                   m_pmem_pool;
     std::string                    m_filename;
+    thallium::rwlock               m_migration_lock;
 
+    struct PmemMigrationHandle : public MigrationHandle {
+
+        PmemTarget* m_target;
+        bool        m_remove_source;
+
+        PmemMigrationHandle(PmemTarget* target, bool removeSource)
+        : m_target(target)
+        , m_remove_source(removeSource) {
+            m_target->m_migration_lock.wrlock();
+            if(m_remove_source) {
+                pmemobj_close(m_target->m_pmem_pool);
+                m_target->m_pmem_pool = nullptr;
+            }
+        }
+
+        ~PmemMigrationHandle() {
+            if(m_remove_source) {
+                m_target->destroy();
+            }
+            m_target->m_migration_lock.unlock();
+        }
+
+        std::string getRoot() const override {
+            size_t found = m_target->m_filename.find_last_of("/");
+            if(found != std::string::npos) {
+                return m_target->m_filename.substr(0, found);
+            } else {
+                return "";
+            }
+        }
+
+        std::list<std::string> getFiles() const override {
+            size_t found = m_target->m_filename.find_last_of("/");
+            if(found != std::string::npos) {
+                return {m_target->m_filename.substr(found + 1)};
+            } else {
+                return {m_target->m_filename};
+            }
+        }
+
+        void cancel() override {}
+    };
 
     public:
 
@@ -87,7 +134,7 @@ class PmemTarget : public warabi::Backend {
     /**
      * @brief Start a migration.
      */
-    Result<std::unique_ptr<MigrationHandle>> startMigration() override;
+    Result<std::unique_ptr<MigrationHandle>> startMigration(bool removeSource) override;
 
     /**
      * @brief Static factory function used by the TargetFactory to

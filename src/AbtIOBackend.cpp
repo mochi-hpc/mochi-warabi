@@ -329,7 +329,7 @@ Result<bool> AbtIOTarget::erase(const RegionID& region_id) {
     return result;
 }
 
-Result<std::unique_ptr<MigrationHandle>> AbtIOTarget::startMigration() {
+Result<std::unique_ptr<MigrationHandle>> AbtIOTarget::startMigration(bool removeSource) {
     Result<std::unique_ptr<MigrationHandle>> result;
     result.success() = false;
     result.error() = "startMigration operation not implemented";

@@ -199,7 +199,7 @@ Result<bool> MemoryTarget::erase(const RegionID& region_id) {
     return result;
 }
 
-Result<std::unique_ptr<MigrationHandle>> MemoryTarget::startMigration() {
+Result<std::unique_ptr<MigrationHandle>> MemoryTarget::startMigration(bool removeSource) {
     Result<std::unique_ptr<MigrationHandle>> result;
     result.success() = false;
     result.error() = "startMigration operation not implemented";

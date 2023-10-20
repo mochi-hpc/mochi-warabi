@@ -91,7 +91,7 @@ class AbtIOTarget : public warabi::Backend {
     /**
      * @brief Start a migration.
      */
-    Result<std::unique_ptr<MigrationHandle>> startMigration() override;
+    Result<std::unique_ptr<MigrationHandle>> startMigration(bool removeSource) override;
 
     /**
      * @brief Static factory function used by the TargetFactory to

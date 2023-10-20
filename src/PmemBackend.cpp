@@ -7,6 +7,7 @@
 #include <valijson/schema.hpp>
 #include <valijson/schema_parser.hpp>
 #include <valijson/validator.hpp>
+#include "Defer.hpp"
 #include "PmemBackend.hpp"
 #include <fmt/format.h>
 #include <filesystem>
@@ -33,20 +34,16 @@ static inline Result<PMEMoid> RegionIDtoPMEMoid(const RegionID& regionID) {
 
 struct PmemRegion : public WritableRegion, public ReadableRegion {
 
-    PmemRegion(
-            thallium::engine engine,
-            PMEMobjpool* pool,
-            RegionID id,
-            char* regionPtr)
-    : m_engine(std::move(engine))
-    , m_pmem_pool(pool)
+    PmemRegion(PmemTarget* target,
+               RegionID id,
+               char* regionPtr)
+    : m_target(target)
     , m_id(std::move(id))
     , m_region_ptr(regionPtr) {}
 
-    thallium::engine m_engine;
-    PMEMobjpool*     m_pmem_pool;
-    RegionID         m_id;
-    char*            m_region_ptr;
+    PmemTarget* m_target;
+    RegionID    m_id;
+    char*       m_region_ptr;
 
     std::vector<std::pair<void*, size_t>> convertToSegments(
         const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes) {
@@ -79,8 +76,9 @@ struct PmemRegion : public WritableRegion, public ReadableRegion {
         size_t totalSize = std::accumulate(
             segments.begin(), segments.end(), (size_t)0,
             [](size_t acc, const auto& pair) { return acc + pair.second; });
-        auto localBulk = m_engine.expose(segments, thallium::bulk_mode::write_only);
+        auto localBulk = m_target->m_engine.expose(segments, thallium::bulk_mode::write_only);
         localBulk << remoteBulk.on(address)(remoteBulkOffset, totalSize);
+        m_target->m_migration_lock.unlock();
         return result;
     }
 
@@ -94,7 +92,7 @@ struct PmemRegion : public WritableRegion, public ReadableRegion {
         const char* ptr = (const char*)data;
         if(persist) {
             for(auto& segment : segments) {
-                pmemobj_memcpy_persist(m_pmem_pool, segment.first, ptr + offset, segment.second);
+                pmemobj_memcpy_persist(m_target->m_pmem_pool, segment.first, ptr + offset, segment.second);
                 offset += segment.second;
             }
         } else {
@@ -103,6 +101,7 @@ struct PmemRegion : public WritableRegion, public ReadableRegion {
                 offset += segment.second;
             }
         }
+        m_target->m_migration_lock.unlock();
         return result;
     }
 
@@ -111,9 +110,10 @@ struct PmemRegion : public WritableRegion, public ReadableRegion {
         Result<bool> result;
         for(size_t i=0; i < regionOffsetSizes.size(); ++i) {
             if(regionOffsetSizes[i].second > 0) {
-                pmemobj_persist(m_pmem_pool, m_region_ptr + regionOffsetSizes[i].first, regionOffsetSizes[i].second);
+                pmemobj_persist(m_target->m_pmem_pool, m_region_ptr + regionOffsetSizes[i].first, regionOffsetSizes[i].second);
             }
         }
+        m_target->m_migration_lock.unlock();
         return result;
     }
 
@@ -128,8 +128,9 @@ struct PmemRegion : public WritableRegion, public ReadableRegion {
         size_t totalSize = std::accumulate(
             segments.begin(), segments.end(), (size_t)0,
             [](size_t acc, const auto& pair) { return acc + pair.second; });
-        auto localBulk = m_engine.expose(segments, thallium::bulk_mode::read_only);
+        auto localBulk = m_target->m_engine.expose(segments, thallium::bulk_mode::read_only);
         localBulk >> remoteBulk.on(address)(remoteBulkOffset, totalSize);
+        m_target->m_migration_lock.unlock();
         return result;
      }
 
@@ -145,6 +146,7 @@ struct PmemRegion : public WritableRegion, public ReadableRegion {
             std::memcpy(ptr + offset, segment.first, segment.second);
             offset += segment.second;
         }
+        m_target->m_migration_lock.unlock();
         return result;
     }
 };
@@ -165,24 +167,29 @@ std::string PmemTarget::getConfig() const {
 }
 
 Result<bool> PmemTarget::destroy() {
-    pmemobj_close(m_pmem_pool);
-    m_pmem_pool = nullptr;
-    std::filesystem::remove(m_filename.c_str());
+    if(m_pmem_pool) {
+        pmemobj_close(m_pmem_pool);
+        m_pmem_pool = nullptr;
+    }
+    std::error_code ec;
+    std::filesystem::remove(m_filename.c_str(), ec);
     return Result<bool>{};
 }
 
 Result<std::unique_ptr<WritableRegion>> PmemTarget::create(size_t size) {
     Result<std::unique_ptr<WritableRegion>> result;
     PMEMoid oid;
+    m_migration_lock.rdlock();
     int ret = pmemobj_alloc(m_pmem_pool, &oid, size, 0, NULL, NULL);
     if(ret != 0) {
         result.success() = false;
         result.error() = fmt::format("pmemobj_alloc failed: {}", pmemobj_errormsg());
+        m_migration_lock.unlock();
         return result;
     }
     RegionID regionID = PMEMoidToRegionID(oid);
     char* ptr = (char*)pmemobj_direct_inline(oid);
-    result.value() = std::make_unique<PmemRegion>(m_engine, m_pmem_pool, regionID, ptr);
+    result.value() = std::make_unique<PmemRegion>(this, regionID, ptr);
     return result;
 }
 
@@ -196,7 +203,8 @@ Result<std::unique_ptr<WritableRegion>> PmemTarget::write(const RegionID& region
         return result;
     }
     char* ptr = (char*)pmemobj_direct_inline(oid.value());
-    result.value() = std::make_unique<PmemRegion>(m_engine, m_pmem_pool, region_id, ptr);
+    m_migration_lock.rdlock();
+    result.value() = std::make_unique<PmemRegion>(this, region_id, ptr);
     return result;
 }
 
@@ -209,7 +217,8 @@ Result<std::unique_ptr<ReadableRegion>> PmemTarget::read(const RegionID& region_
         return result;
     }
     char* ptr = (char*)pmemobj_direct_inline(oid.value());
-    result.value() = std::make_unique<PmemRegion>(m_engine, m_pmem_pool, region_id, ptr);
+    m_migration_lock.rdlock();
+    result.value() = std::make_unique<PmemRegion>(this, region_id, ptr);
     return result;
 }
 
@@ -221,15 +230,14 @@ Result<bool> PmemTarget::erase(const RegionID& region_id) {
         result.error() = oid.error();
         return result;
     }
+    m_migration_lock.rdlock();
     pmemobj_free(&oid.value());
     return result;
 }
 
-Result<std::unique_ptr<MigrationHandle>> PmemTarget::startMigration() {
+Result<std::unique_ptr<MigrationHandle>> PmemTarget::startMigration(bool removeSource) {
     Result<std::unique_ptr<MigrationHandle>> result;
-    result.success() = false;
-    result.error() = "startMigration operation not implemented";
-    // TODO
+    result.value() = std::make_unique<PmemMigrationHandle>(this, removeSource);
     return result;
 }
 
@@ -237,7 +245,39 @@ Result<std::unique_ptr<warabi::Backend>> PmemTarget::recover(
          const thallium::engine& engine, const json& config,
          const std::vector<std::string>& filenames) {
     Result<std::unique_ptr<warabi::Backend>> result;
-    // TODO
+    if(filenames.size() == 0) {
+        result.error() = "No file to recover from";
+        result.success() = false;
+        return result;
+    }
+    if(filenames.size() > 1) {
+        result.error() = "Pmem backend cannot recover from multiple files";
+        result.success() = false;
+        return result;
+    }
+    json cfg = config;
+    cfg["path"] = filenames[0];
+    const auto& path = filenames[0];
+
+    PMEMobjpool* pool = nullptr;
+
+    bool file_exists = std::filesystem::exists(path);
+    if(!file_exists) {
+        result.error() = fmt::format("File {} not found", path);
+        result.success() = false;
+        return result;
+    }
+
+    pool = pmemobj_open(path.c_str(), NULL);
+    if(!pool) {
+        result.success() = false;
+        result.error() = fmt::format(
+            "Failed to open pmemobj target at {}: {}",
+            path, pmemobj_errormsg());
+        return result;
+    }
+
+    result.value() = std::make_unique<warabi::PmemTarget>(engine, cfg, pool);
     return result;
 }
 

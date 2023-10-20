@@ -245,7 +245,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
             warn("Warabi provider initialized with only a REMI client"
                  " will only be able to *send* targets to other providers");
         } else if(!m_remi_client && m_remi_provider) {
-            warn("Yokan provider initialized with only a REMI provider"
+            warn("Warabi provider initialized with only a REMI provider"
                  " will only be able to *receive* targets from other providers");
         }
         if(m_remi_provider) {
@@ -558,12 +558,13 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         result.success() = false;
 #else
 
-        #define HANDLE_REMI_ERROR(rret, ...) do {          \
-            if(rret != REMI_SUCCESS) {                     \
-                result.success() = false;                  \
-                result.error() = fmt::format(__VA_ARGS__); \
-                return;                                    \
-            }                                              \
+        #define HANDLE_REMI_ERROR(func, rret, ...) do {                          \
+            if(rret != REMI_SUCCESS) {                                           \
+                result.success() = false;                                        \
+                result.error() = fmt::format(__VA_ARGS__);                       \
+                result.error() += fmt::format(" ({} returned {})", #func, rret); \
+                return;                                                          \
+            }                                                                    \
         } while(0)
 
         // lookup destination address
@@ -579,13 +580,13 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         remi_provider_handle_t remi_ph = NULL;
         int rret = remi_provider_handle_create(
                 m_remi_client, dest_endpoint.get_addr(), dest_provider_id, &remi_ph);
-        HANDLE_REMI_ERROR(rret, "Failed to create REMI provider handle");
+        HANDLE_REMI_ERROR(remi_provider_handle_create, rret, "Failed to create REMI provider handle");
         DEFER(remi_provider_handle_release(remi_ph));
         // find target
         FIND_TARGET(target);
         // get a MigrationHandle
         auto& tg = target->m_target;
-        auto startMigration = tg->startMigration();
+        auto startMigration = tg->startMigration(options.removeSource);
         if(!startMigration.success()) {
             result.error() = startMigration.error();
             result.success() = false;
@@ -596,37 +597,39 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         remi_fileset_t fileset = REMI_FILESET_NULL;
         std::string remi_class = fmt::format("warabi/{}", dest_provider_id);
         rret = remi_fileset_create(remi_class.c_str(), mh->getRoot().c_str(), &fileset);
-        HANDLE_REMI_ERROR(rret, "Failed to create REMI fileset");
+        HANDLE_REMI_ERROR(remi_fileset_create, rret, "Failed to create REMI fileset");
         DEFER(remi_fileset_free(fileset));
         // fill REMI fileset
         for(const auto& file : mh->getFiles()) {
             if(!file.empty() && file.back() == '/') {
                 rret = remi_fileset_register_directory(fileset, file.c_str());
-                HANDLE_REMI_ERROR(rret, "Failed to register directory {} in REMI fileset", file);
+                HANDLE_REMI_ERROR(remi_fileset_register_directory, rret,
+                        "Failed to register directory {} in REMI fileset", file);
             } else {
                 rret = remi_fileset_register_file(fileset, file.c_str());
-                HANDLE_REMI_ERROR(rret, "Failed to register file {} in REMI fileset", file);
+                HANDLE_REMI_ERROR(remi_fileset_register_file, rret,
+                        "Failed to register file {} in REMI fileset", file);
             }
         }
         // register REMI metadata
         rret = remi_fileset_register_metadata(fileset, "uuid", target_id.to_string().c_str());
-        HANDLE_REMI_ERROR(rret, "Failed to register metadata in REMI fileset");
+        HANDLE_REMI_ERROR(remi_fileset_register_metadata, rret, "Failed to register metadata in REMI fileset");
         rret = remi_fileset_register_metadata(fileset, "config", tg->getConfig().c_str());
-        HANDLE_REMI_ERROR(rret, "Failed to register metadata in REMI fileset");
+        HANDLE_REMI_ERROR(remi_fileset_register_metadata, rret, "Failed to register metadata in REMI fileset");
         rret = remi_fileset_register_metadata(fileset, "type", tg->name().c_str());
-        HANDLE_REMI_ERROR(rret, "Failed to register metadata in REMI fileset");
+        HANDLE_REMI_ERROR(remi_fileset_register_metadata, rret, "Failed to register metadata in REMI fileset");
         rret = remi_fileset_register_metadata(fileset, "migration_config", options.extraConfig.c_str());
-        HANDLE_REMI_ERROR(rret, "Failed to register metadata in REMI fileset");
+        HANDLE_REMI_ERROR(remi_fileset_register_metadata, rret, "Failed to register metadata in REMI fileset");
         // set block transfer size
         if(options.transferSize) {
             rret = remi_fileset_set_xfer_size(fileset, options.transferSize);
-            HANDLE_REMI_ERROR(rret, "Failed to set transfer size for REMI fileset");
+            HANDLE_REMI_ERROR(remi_fileset_set_xfer_size, rret, "Failed to set transfer size for REMI fileset");
         }
         // issue migration
         int remi_status = 0;
         rret = remi_fileset_migrate(remi_ph, fileset, options.newRoot.c_str(),
                 REMI_KEEP_SOURCE, REMI_USE_MMAP, &remi_status);
-        HANDLE_REMI_ERROR(rret, "REMI failed to migrate fileset");
+        HANDLE_REMI_ERROR(remi_fileset_migrate, rret, "REMI failed to migrate fileset");
         if(remi_status) {
             result.success() = false;
             result.error() = fmt::format("Migration failed with status {}", remi_status);
@@ -926,7 +929,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         std::vector<std::string> files;
         rret = remi_fileset_walkthrough(fileset,
             [](const char* filename, void* uargs) {
-                static_cast<std::list<std::string>*>(uargs)->emplace_back(filename);
+                static_cast<std::vector<std::string>*>(uargs)->emplace_back(filename);
             }, &files);
         if(rret != REMI_SUCCESS) return 2;
 
@@ -939,12 +942,17 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         if(rret != REMI_SUCCESS) return 3;
 
         auto root_str = std::string{root.data()};
+        if(root_str.empty() || root_str.back() != '/')
+            root_str += "/";
         for(auto& filename : files) {
-            filename = root_str + "/" + filename;
+            filename = root_str + filename;
         }
 
         auto target = TargetFactory::recoverTarget(type, provider->m_engine, config_json, files);
-        if(!target.success()) return 4;
+        if(!target.success()) {
+            provider->error("{}", target.error());
+            return 4;
+        }
 
         provider->m_targets[target_id] = std::make_shared<TargetEntry>(
                 std::shared_ptr<Backend>(std::move(target.value())), tm, tm_name);
