@@ -19,9 +19,10 @@ namespace warabi {
  */
 struct RegionID {
 
-    uint8_t* content = nullptr;
+    uint8_t* content;
 
-    RegionID() = default;
+    RegionID()
+    : content{nullptr} {}
 
     RegionID(const void* data, uint8_t size)
     : content{new uint8_t[size + 1]} {

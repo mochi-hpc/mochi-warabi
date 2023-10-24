@@ -76,6 +76,54 @@ set_target_properties (warabi-admin
     PROPERTIES VERSION ${WARABI_VERSION}
     SOVERSION ${WARABI_VERSION_MAJOR})
 
+# C error library
+add_library (warabi-c-error ${CMAKE_CURRENT_SOURCE_DIR}/c/error.cpp)
+target_link_libraries (warabi-c-error PRIVATE warabi-client)
+target_include_directories (warabi-c-error PUBLIC $<INSTALL_INTERFACE:include>)
+target_include_directories (warabi-c-error BEFORE PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>)
+target_include_directories (warabi-c-error BEFORE PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>)
+set_target_properties (warabi-c-error
+    PROPERTIES VERSION ${WARABI_VERSION}
+    SOVERSION ${WARABI_VERSION_MAJOR})
+
+# C admin library
+add_library (warabi-c-admin ${CMAKE_CURRENT_SOURCE_DIR}/c/admin.cpp)
+target_link_libraries (warabi-c-admin PUBLIC warabi-c-error PRIVATE warabi-admin)
+target_include_directories (warabi-c-admin PUBLIC $<INSTALL_INTERFACE:include>)
+target_include_directories (warabi-c-admin BEFORE PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>)
+target_include_directories (warabi-c-admin BEFORE PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>)
+set_target_properties (warabi-c-admin
+    PROPERTIES VERSION ${WARABI_VERSION}
+    SOVERSION ${WARABI_VERSION_MAJOR})
+
+# C client library
+add_library (warabi-c-client ${CMAKE_CURRENT_SOURCE_DIR}/c/client.cpp)
+target_link_libraries (warabi-c-client PUBLIC warabi-c-error PRIVATE warabi-client)
+target_include_directories (warabi-c-client PUBLIC $<INSTALL_INTERFACE:include>)
+target_include_directories (warabi-c-client BEFORE PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>)
+target_include_directories (warabi-c-client BEFORE PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>)
+set_target_properties (warabi-c-client
+    PROPERTIES VERSION ${WARABI_VERSION}
+    SOVERSION ${WARABI_VERSION_MAJOR})
+
+# C server library
+add_library (warabi-c-server ${CMAKE_CURRENT_SOURCE_DIR}/c/server.cpp)
+target_link_libraries (warabi-c-server PUBLIC warabi-c-error PRIVATE warabi-server)
+target_include_directories (warabi-c-server PUBLIC $<INSTALL_INTERFACE:include>)
+target_include_directories (warabi-c-server BEFORE PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>)
+target_include_directories (warabi-c-server BEFORE PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>)
+set_target_properties (warabi-c-server
+    PROPERTIES VERSION ${WARABI_VERSION}
+    SOVERSION ${WARABI_VERSION_MAJOR})
+
 if (${ENABLE_BEDROCK})
 # bedrock module library
 add_library (warabi-bedrock-module ${module-src-files})
@@ -118,6 +166,7 @@ configure_file ("config.h.in" "config.h" @ONLY)
 
 # "make install" rules
 install (TARGETS warabi-admin warabi-server warabi-client
+                 warabi-c-error warabi-c-admin warabi-c-client warabi-c-server
          EXPORT warabi-targets
          ARCHIVE DESTINATION lib
          LIBRARY DESTINATION lib)
@@ -135,6 +184,9 @@ install (FILES "${CMAKE_CURRENT_BINARY_DIR}/warabi-config.cmake"
 install (DIRECTORY ../include/warabi
          DESTINATION include
          FILES_MATCHING PATTERN "*.h")
+install (DIRECTORY ../include/warabi
+         DESTINATION include
+         FILES_MATCHING PATTERN "*.hpp")
 install (FILES "${CMAKE_CURRENT_BINARY_DIR}/warabi-server.pc"
                "${CMAKE_CURRENT_BINARY_DIR}/warabi-client.pc"
                "${CMAKE_CURRENT_BINARY_DIR}/warabi-admin.pc"

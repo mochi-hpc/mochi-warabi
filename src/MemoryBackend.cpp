@@ -203,6 +203,7 @@ Result<std::unique_ptr<MigrationHandle>> MemoryTarget::startMigration(bool remov
     Result<std::unique_ptr<MigrationHandle>> result;
     result.success() = false;
     result.error() = "startMigration operation not implemented";
+    (void)removeSource;
     // TODO
     return result;
 }
@@ -211,6 +212,9 @@ Result<std::unique_ptr<warabi::Backend>> MemoryTarget::recover(
         const thallium::engine& engine, const json& config,
         const std::vector<std::string>& filenames) {
     Result<std::unique_ptr<warabi::Backend>> result;
+    (void)engine;
+    (void)config;
+    (void)filenames;
     // TODO
     return result;
 }

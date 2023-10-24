@@ -6,7 +6,7 @@
 #ifndef __WARABI_UUID_UTIL_HPP
 #define __WARABI_UUID_UTIL_HPP
 
-#include <uuid/uuid.h>
+#include <uuid.h>
 #include <string>
 #include <cstring>
 
@@ -24,6 +24,10 @@ struct UUID {
      */
     UUID() {
         uuid_clear(m_data);
+    }
+
+    UUID(const uuid_t id) {
+        std::memcpy(m_data, id, sizeof(m_data));
     }
 
     /**
