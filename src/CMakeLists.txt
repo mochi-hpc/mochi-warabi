@@ -160,6 +160,9 @@ set (ADMIN_PRIVATE_LIBS  "-lwarabi-admin")
 configure_file ("warabi-server.pc.in" "warabi-server.pc" @ONLY)
 configure_file ("warabi-client.pc.in" "warabi-client.pc" @ONLY)
 configure_file ("warabi-admin.pc.in"  "warabi-admin.pc"  @ONLY)
+configure_file ("warabi-c-server.pc.in" "warabi-c-server.pc" @ONLY)
+configure_file ("warabi-c-client.pc.in" "warabi-c-client.pc" @ONLY)
+configure_file ("warabi-c-admin.pc.in"  "warabi-c-admin.pc"  @ONLY)
 
 # configure config.h
 configure_file ("config.h.in" "config.h" @ONLY)
@@ -190,4 +193,7 @@ install (DIRECTORY ../include/warabi
 install (FILES "${CMAKE_CURRENT_BINARY_DIR}/warabi-server.pc"
                "${CMAKE_CURRENT_BINARY_DIR}/warabi-client.pc"
                "${CMAKE_CURRENT_BINARY_DIR}/warabi-admin.pc"
+               "${CMAKE_CURRENT_BINARY_DIR}/warabi-c-server.pc"
+               "${CMAKE_CURRENT_BINARY_DIR}/warabi-c-client.pc"
+               "${CMAKE_CURRENT_BINARY_DIR}/warabi-c-admin.pc"
          DESTINATION "lib/pkgconfig/")
