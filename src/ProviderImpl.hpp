@@ -839,6 +839,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         trace("Successfully executed erase on target {}", target_id.to_string());
     }
 
+#ifdef WARABI_HAS_REMI
     static int32_t beforeMigrationCallback(remi_fileset_t fileset, void* uargs) {
         // the goal this callback is just to make sure the required metadata
         // is available and there  isn't any database with the same name yet,
@@ -959,7 +960,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
 
         return 0;
     }
-
+#endif
 };
 
 }
