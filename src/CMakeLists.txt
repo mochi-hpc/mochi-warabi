@@ -78,7 +78,7 @@ set_target_properties (warabi-admin
 
 # C error library
 add_library (warabi-c-error ${CMAKE_CURRENT_SOURCE_DIR}/c/error.cpp)
-target_link_libraries (warabi-c-error PRIVATE warabi-client)
+target_link_libraries (warabi-c-error PRIVATE warabi-client coverage_config)
 target_include_directories (warabi-c-error PUBLIC $<INSTALL_INTERFACE:include>)
 target_include_directories (warabi-c-error BEFORE PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>)
@@ -90,7 +90,7 @@ set_target_properties (warabi-c-error
 
 # C admin library
 add_library (warabi-c-admin ${CMAKE_CURRENT_SOURCE_DIR}/c/admin.cpp)
-target_link_libraries (warabi-c-admin PUBLIC warabi-c-error PRIVATE warabi-admin)
+target_link_libraries (warabi-c-admin PUBLIC warabi-c-error PRIVATE warabi-admin coverage_config)
 target_include_directories (warabi-c-admin PUBLIC $<INSTALL_INTERFACE:include>)
 target_include_directories (warabi-c-admin BEFORE PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>)
@@ -102,7 +102,7 @@ set_target_properties (warabi-c-admin
 
 # C client library
 add_library (warabi-c-client ${CMAKE_CURRENT_SOURCE_DIR}/c/client.cpp)
-target_link_libraries (warabi-c-client PUBLIC warabi-c-error PRIVATE warabi-client)
+target_link_libraries (warabi-c-client PUBLIC warabi-c-error PRIVATE warabi-client coverage_config)
 target_include_directories (warabi-c-client PUBLIC $<INSTALL_INTERFACE:include>)
 target_include_directories (warabi-c-client BEFORE PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>)
@@ -114,7 +114,7 @@ set_target_properties (warabi-c-client
 
 # C server library
 add_library (warabi-c-server ${CMAKE_CURRENT_SOURCE_DIR}/c/server.cpp)
-target_link_libraries (warabi-c-server PUBLIC warabi-c-error PRIVATE warabi-server)
+target_link_libraries (warabi-c-server PUBLIC warabi-c-error PRIVATE warabi-server coverage_config)
 target_include_directories (warabi-c-server PUBLIC $<INSTALL_INTERFACE:include>)
 target_include_directories (warabi-c-server BEFORE PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>)
