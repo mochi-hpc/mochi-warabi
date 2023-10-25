@@ -87,17 +87,7 @@ extern "C" warabi_err_t warabi_write(
         const char* data, size_t size,
         bool persist,
         warabi_async_request_t* req) {
-    try {
-        auto region_id = reinterpret_cast<warabi::RegionID*>(&region);
-        if(req) {
-            warabi::AsyncRequest async_req;
-            th->write(*region_id, regionOffset, data, size, persist, &async_req);
-            *req = new warabi_async_request{std::move(async_req)};
-        } else {
-            th->write(*region_id, regionOffset, data, size, persist);
-        }
-
-    } HANDLE_WARABI_ERROR;
+    return warabi_write_multi(th, region, 1, &regionOffset, &size, data, persist, req);
 }
 
 extern "C" warabi_err_t warabi_write_multi(
@@ -135,20 +125,8 @@ extern "C" warabi_err_t warabi_write_bulk(
         size_t bulkOffset, size_t size,
         bool persist,
         warabi_async_request_t* req) {
-    try {
-        auto region_id = reinterpret_cast<warabi::RegionID*>(&region);
-        auto engine = th->client().engine();
-        if(req) {
-            warabi::AsyncRequest async_req;
-            th->write(*region_id, regionOffset, engine.wrap(bulk, false),
-                      address, bulkOffset, size, persist, &async_req);
-            *req = new warabi_async_request{std::move(async_req)};
-        } else {
-            th->write(*region_id, regionOffset, engine.wrap(bulk, false),
-                      address, bulkOffset, size, persist);
-        }
-
-    } HANDLE_WARABI_ERROR;
+    return warabi_write_multi_bulk(th, region, 1, &regionOffset, &size,
+                                   bulk, address, bulkOffset, persist, req);
 }
 
 extern "C" warabi_err_t warabi_write_multi_bulk(
@@ -187,17 +165,7 @@ extern "C" warabi_err_t warabi_persist(
         size_t regionOffset,
         size_t size,
         warabi_async_request_t* req) {
-    try {
-        auto region_id = reinterpret_cast<warabi::RegionID*>(&region);
-        if(req) {
-            warabi::AsyncRequest async_req;
-            th->persist(*region_id, regionOffset, size, &async_req);
-            *req = new warabi_async_request{std::move(async_req)};
-        } else {
-            th->persist(*region_id, regionOffset, size);
-        }
-
-    } HANDLE_WARABI_ERROR;
+    return warabi_persist_multi(th, region, 1, &regionOffset, &size, req);
 }
 
 extern "C" warabi_err_t warabi_persist_multi(
@@ -269,17 +237,7 @@ extern "C" warabi_err_t warabi_read(
         size_t regionOffset,
         char* data, size_t size,
         warabi_async_request_t* req) {
-    try {
-        auto region_id = reinterpret_cast<warabi::RegionID*>(&region);
-        if(req) {
-            warabi::AsyncRequest async_req;
-            th->read(*region_id, regionOffset, data, size, &async_req);
-            *req = new warabi_async_request{std::move(async_req)};
-        } else {
-            th->read(*region_id, regionOffset, data, size);
-        }
-
-    } HANDLE_WARABI_ERROR;
+    return warabi_read_multi(th, region, 1, &regionOffset, &size, data, req);
 }
 
 extern "C" warabi_err_t warabi_read_multi(
