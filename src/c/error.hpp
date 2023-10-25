@@ -8,8 +8,8 @@
 
 struct warabi_err : public warabi::Exception {};
 
-#define HANDLE_WARABI_ERROR                                         \
-    catch(const warabi::Exception& ex) {                            \
-        return static_cast<warabi_err*>(new warabi::Exception{ex}); \
-    }                                                               \
+#define HANDLE_WARABI_ERROR                                                \
+    catch(const std::exception& ex) {                                      \
+        return static_cast<warabi_err*>(new warabi::Exception{ex.what()}); \
+    }                                                                      \
     return nullptr

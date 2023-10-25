@@ -73,6 +73,11 @@ warabi_err_t warabi_target_handle_free(warabi_target_handle_t th);
 char* warabi_client_get_config(warabi_client_t client);
 
 /**
+ * @brief Free the region's opaque data.
+ */
+warabi_err_t warabi_region_free(warabi_region_t region);
+
+/**
  * @brief Create a region.
  *
  * @param[in] th Target handle.

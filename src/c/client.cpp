@@ -63,6 +63,11 @@ extern "C" char* warabi_client_get_config(warabi_client_t client) {
     return strdup(config.c_str());
 }
 
+extern "C" warabi_err_t warabi_region_free(warabi_region_t region) {
+    delete region.opaque;
+    return nullptr;
+}
+
 extern "C" warabi_err_t warabi_create(
         warabi_target_handle_t th,
         size_t size,
@@ -70,6 +75,7 @@ extern "C" warabi_err_t warabi_create(
         warabi_async_request_t* req) {
     try {
         auto region_id = reinterpret_cast<warabi::RegionID*>(region);
+        region_id->content = nullptr;
         if(req) {
             warabi::AsyncRequest async_req;
             th->create(region_id, size, &async_req);
@@ -201,6 +207,7 @@ extern "C" warabi_err_t warabi_create_write(
         warabi_async_request_t* req) {
     try {
         auto region_id = reinterpret_cast<warabi::RegionID*>(region);
+        region_id->content = nullptr;
         if(req) {
             warabi::AsyncRequest async_req;
             th->createAndWrite(region_id, data, size, persist, &async_req);
@@ -220,6 +227,7 @@ extern "C" warabi_err_t warabi_create_write_bulk(
         warabi_async_request_t* req) {
     try {
         auto region_id = reinterpret_cast<warabi::RegionID*>(region);
+        region_id->content = nullptr;
         auto engine = th->client().engine();
         if(req) {
             warabi::AsyncRequest async_req;
@@ -338,9 +346,14 @@ extern "C" warabi_err_t warabi_erase(
 }
 
 extern "C" warabi_err_t warabi_wait(warabi_async_request_t req) {
+    warabi_err_t err = nullptr;
     try {
         req->wait();
-    } HANDLE_WARABI_ERROR;
+    } catch(const std::exception& ex) {
+        err = static_cast<warabi_err*>(new warabi::Exception{ex.what()});
+    }
+    delete req;
+    return err;
 }
 
 extern "C" warabi_err_t warabi_test(warabi_async_request_t req, bool* flag) {

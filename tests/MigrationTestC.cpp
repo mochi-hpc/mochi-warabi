@@ -13,7 +13,7 @@
 #include "defer.hpp"
 #include "configs.hpp"
 
-TEST_CASE("Target migration test", "[migration]") {
+TEST_CASE("Target migration test in C", "[c/migration]") {
 
     auto target_type = GENERATE(as<std::string>{}, "pmdk", "abtio");
 
