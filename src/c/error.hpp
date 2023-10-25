@@ -6,7 +6,11 @@
 #include "warabi/error.h"
 #include "warabi/Exception.hpp"
 
-struct warabi_err : public warabi::Exception {};
+struct warabi_err : public warabi::Exception {
+    template<typename ... Args>
+    warabi_err(Args&&... args)
+    : warabi::Exception(std::forward<Args>(args)...) {}
+};
 
 #define HANDLE_WARABI_ERROR                                                \
     catch(const std::exception& ex) {                                      \

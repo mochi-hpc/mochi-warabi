@@ -68,6 +68,24 @@ extern "C" warabi_err_t warabi_region_free(warabi_region_t region) {
     return nullptr;
 }
 
+extern "C" warabi_err_t warabi_region_serialize(
+        warabi_region_t region,
+        void (*serialization_fn)(void*, const void*, size_t),
+        void* uargs) {
+    if(!region.opaque) {
+        return new warabi_err{"Invalid Region ID"};
+    }
+    serialization_fn(uargs, region.opaque + 1, region.opaque[0] - 1);
+    return nullptr;
+}
+
+extern "C" warabi_err_t warabi_region_deserialize(
+        warabi_region_t* region,
+        const void* data, size_t size) {
+    new((void*)region) warabi::RegionID{data, (uint8_t)size};
+    return nullptr;
+}
+
 extern "C" warabi_err_t warabi_create(
         warabi_target_handle_t th,
         size_t size,
