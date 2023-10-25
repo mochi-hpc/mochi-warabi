@@ -17,8 +17,18 @@ class WarabiFactory : public bedrock::AbstractServiceFactory {
     WarabiFactory() {}
 
     void *registerProvider(const bedrock::FactoryArgs &args) override {
+        remi_client_t remi_cl = nullptr;
+        remi_provider_t remi_pr = nullptr;
+        auto it = args.dependencies.find("remi_client");
+        if(it != args.dependencies.end() && it->second.dependencies.size() != 0) {
+            remi_cl = it->second.dependencies[0]->getHandle<remi_client_t>();
+        }
+        it = args.dependencies.find("remi_provider");
+        if(it != args.dependencies.end() && it->second.dependencies.size() != 0) {
+            remi_pr = it->second.dependencies[0]->getHandle<remi_provider_t>();
+        }
         auto provider = new warabi::Provider(args.mid, args.provider_id,
-                args.config, tl::pool(args.pool));
+                args.config, tl::pool(args.pool), remi_cl, remi_pr);
         return static_cast<void *>(provider);
     }
 
@@ -62,7 +72,10 @@ class WarabiFactory : public bedrock::AbstractServiceFactory {
     }
 
     const std::vector<bedrock::Dependency> &getProviderDependencies() override {
-        static const std::vector<bedrock::Dependency> no_dependency;
+        static const std::vector<bedrock::Dependency> no_dependency = {
+            {"remi_client", "remi", BEDROCK_OPTIONAL},
+            {"remi_provider", "remi", BEDROCK_OPTIONAL}
+        };
         return no_dependency;
     }
 
