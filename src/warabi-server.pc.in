@@ -7,6 +7,6 @@ Name: warabi-server
 Description: Blob storage component for Mochi
 Version: @WARABI_VERSION@
 
-Requires: thallium uuid nlohmann_json
+Requires: thallium nlohmann_json
 Libs: -L${libdir} @SERVER_PRIVATE_LIBS@ -lstdc++
 Cflags: -I${includedir}

@@ -33,7 +33,6 @@ class ClientImpl {
 
     ClientImpl(const tl::engine& engine)
     : m_engine(engine)
-    , m_check_target(m_engine.define("warabi_check_target"))
     , m_create(m_engine.define("warabi_create"))
     , m_write(m_engine.define("warabi_write"))
     , m_write_eager(m_engine.define("warabi_write_eager"))

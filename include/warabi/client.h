@@ -7,7 +7,6 @@
 #define __WARABI_CLIENT_H
 
 #include <margo.h>
-#include <warabi/target_id.h>
 #include <warabi/error.h>
 
 #ifdef __cplusplus
@@ -47,14 +46,12 @@ warabi_err_t warabi_client_free(warabi_client_t client);
  * @param[in] client Client.
  * @param[in] address Address of the provider holding the target.
  * @param[in] provider_id Provider id.
- * @param[in] target_id Target UUID.
  * @param[out] th Target handle.
  */
 warabi_err_t warabi_client_make_target_handle(
         warabi_client_t client,
         const char* address,
         uint16_t provider_id,
-        const warabi_target_id id,
         warabi_target_handle_t* th);
 
 /**

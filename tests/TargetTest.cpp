@@ -7,7 +7,6 @@
 #include <catch2/catch_all.hpp>
 #include <warabi/Client.hpp>
 #include <warabi/Provider.hpp>
-#include <warabi/Admin.hpp>
 #include "defer.hpp"
 #include "configs.hpp"
 
@@ -19,44 +18,19 @@ TEST_CASE("Target test", "[target]") {
     CAPTURE(target_type);
     CAPTURE(tm_type);
 
-    auto target_config = makeConfigForBackend(target_type);
-    auto tm_config = makeConfigForTransferManager(tm_type);
+    auto pr_config = makeConfigForProvider(target_type, tm_type);
 
     auto engine = thallium::engine("na+sm", THALLIUM_SERVER_MODE);
     DEFER(engine.finalize());
 
-    warabi::Admin admin(engine);
-    warabi::Provider provider(engine);
-    std::string addr = engine.self();
-    admin.addTransferManager(addr, 0, "tm", tm_type, tm_config);
-    auto target_id = admin.addTarget(addr, 0, target_type, target_config);
-    DEFER(admin.destroyTarget(addr, 0, target_id));
-
-    SECTION("Create bad TargetHandles") {
-        warabi::Client client(engine);
-        std::string addr = engine.self();
-
-        /* make a TargetHandle with a bad target ID */
-        auto bad_id = warabi::UUID::generate();
-        REQUIRE_THROWS_AS(client.makeTargetHandle(addr, 0, bad_id),
-                          warabi::Exception);
-
-        /* make a TargetHandle with a bad provider ID */
-        REQUIRE_THROWS_AS(client.makeTargetHandle(addr, 1, target_id),
-                         std::exception);
-
-        /* make a TargetHandle with a bad target ID but check = false */
-        REQUIRE_NOTHROW(client.makeTargetHandle(addr, 0, bad_id, false));
-
-        /* make a TargetHandle with a bad provider ID but check = false */
-        REQUIRE_NOTHROW(client.makeTargetHandle(addr, 1, target_id, false));
-    }
+    warabi::Provider provider(engine, 42, pr_config);
 
     SECTION("Access target via a TargetHandle") {
+
         warabi::Client client(engine);
         std::string addr = engine.self();
 
-        auto th = client.makeTargetHandle(addr, 0, target_id);
+        auto th = client.makeTargetHandle(addr, 42);
         th.setEagerReadThreshold(128);
         th.setEagerWriteThreshold(128);
 

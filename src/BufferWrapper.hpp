@@ -6,8 +6,6 @@
 #ifndef __WARABI_BUFFER_WRAPPER_H
 #define __WARABI_BUFFER_WRAPPER_H
 
-#include <warabi/UUID.hpp>
-
 namespace warabi {
 
 class BufferWrapper {

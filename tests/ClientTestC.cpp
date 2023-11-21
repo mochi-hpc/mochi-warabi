@@ -7,7 +7,6 @@
 #include <catch2/catch_all.hpp>
 #include <warabi/client.h>
 #include <warabi/Provider.hpp>
-#include <warabi/Admin.hpp>
 #include "defer.hpp"
 #include "configs.hpp"
 
@@ -19,19 +18,13 @@ TEST_CASE("Client tests in C", "[c/client]") {
     CAPTURE(target_type);
     CAPTURE(tm_type);
 
-    auto target_config = makeConfigForBackend(target_type);
-    auto tm_config = makeConfigForTransferManager(tm_type);
+    auto pr_config = makeConfigForProvider(target_type, tm_type);
 
     auto engine = thallium::engine("na+sm", THALLIUM_SERVER_MODE);
     DEFER(engine.finalize());
 
     // Initialize the provider
-    warabi::Provider provider(engine);
-    warabi::Admin admin(engine);
-    std::string addr = engine.self();
-    admin.addTransferManager(addr, 0, "tm", tm_type, tm_config);
-    auto target_id = admin.addTarget(addr, 0, target_type, target_config);
-    DEFER(admin.destroyTarget(addr, 0, target_id));
+    warabi::Provider provider(engine, 42, pr_config);
 
     SECTION("Open target") {
 
@@ -46,16 +39,11 @@ TEST_CASE("Client tests in C", "[c/client]") {
         std::string addr = engine.self();
 
         warabi_target_handle_t th = nullptr;
-        err = warabi_client_make_target_handle(client, addr.c_str(), 0, target_id.m_data, &th);
+        err = warabi_client_make_target_handle(client, addr.c_str(), 42, &th);
         REQUIRE(th != nullptr);
         REQUIRE(err == WARABI_SUCCESS);
 
         err = warabi_target_handle_free(th);
         REQUIRE(err == WARABI_SUCCESS);
-
-        auto bad_id = warabi::UUID::generate();
-        err = warabi_client_make_target_handle(client, addr.c_str(), 0, bad_id.m_data, &th);
-        REQUIRE(err != WARABI_SUCCESS);
-        warabi_err_free(err); err = WARABI_SUCCESS;
     }
 }

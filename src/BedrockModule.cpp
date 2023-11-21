@@ -5,7 +5,7 @@
  */
 #include "warabi/Client.hpp"
 #include "warabi/Provider.hpp"
-#include "warabi/ProviderHandle.hpp"
+#include "warabi/TargetHandle.hpp"
 #include <bedrock/AbstractServiceFactory.hpp>
 
 namespace tl = thallium;
@@ -58,17 +58,15 @@ class WarabiFactory : public bedrock::AbstractServiceFactory {
     void *createProviderHandle(void *c, hg_addr_t address,
             uint16_t provider_id) override {
         auto client = static_cast<warabi::Client *>(c);
-        auto ph = new warabi::ProviderHandle(
-                client->engine(),
-                address,
-                provider_id,
-                false);
-        return static_cast<void *>(ph);
+        auto addr_str = static_cast<std::string>(tl::endpoint{client->engine(), address, false});
+        auto th = new warabi::TargetHandle{
+            client->makeTargetHandle(addr_str, provider_id)};
+        return static_cast<void *>(th);
     }
 
     void destroyProviderHandle(void *providerHandle) override {
-        auto ph = static_cast<warabi::ProviderHandle *>(providerHandle);
-        delete ph;
+        auto th = static_cast<warabi::TargetHandle *>(providerHandle);
+        delete th;
     }
 
     const std::vector<bedrock::Dependency> &getProviderDependencies() override {

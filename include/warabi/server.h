@@ -20,7 +20,6 @@ typedef struct warabi_provider* warabi_provider_t;
 #define WARABI_PROVIDER_IGNORE ((warabi_provider_t)0)
 
 struct warabi_provider_init_args {
-    const char*     config;
     ABT_pool        pool;
     remi_client_t   remi_cl;
     remi_provider_t remi_pr;
@@ -40,6 +39,7 @@ warabi_err_t warabi_provider_register(
     warabi_provider_t* provider,
     margo_instance_id mid,
     uint16_t provider_id,
+    const char* config,
     struct warabi_provider_init_args* args);
 
 /**

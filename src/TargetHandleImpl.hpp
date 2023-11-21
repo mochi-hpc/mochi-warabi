@@ -6,7 +6,6 @@
 #ifndef __WARABI_TARGET_HANDLE_IMPL_H
 #define __WARABI_TARGET_HANDLE_IMPL_H
 
-#include <warabi/UUID.hpp>
 #include <thallium.hpp>
 #include "ClientImpl.hpp"
 
@@ -18,7 +17,6 @@ class TargetHandleImpl {
 
     public:
 
-    UUID                        m_target_id;
     std::shared_ptr<ClientImpl> m_client;
     tl::provider_handle         m_ph;
 
@@ -28,10 +26,8 @@ class TargetHandleImpl {
     TargetHandleImpl() = default;
 
     TargetHandleImpl(const std::shared_ptr<ClientImpl>& client,
-                       tl::provider_handle&& ph,
-                       const UUID& target_id)
-    : m_target_id(target_id)
-    , m_client(client)
+                       tl::provider_handle&& ph)
+    : m_client(client)
     , m_ph(std::move(ph)) {}
 };
 

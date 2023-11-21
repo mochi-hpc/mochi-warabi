@@ -14,9 +14,6 @@ set (client-src-files
      TargetHandle.cpp
      AsyncRequest.cpp)
 
-set (admin-src-files
-     Admin.cpp)
-
 set (module-src-files
      BedrockModule.cpp)
 
@@ -37,7 +34,7 @@ else ()
 endif ()
 add_library (warabi-server ${server-src-files})
 target_link_libraries (warabi-server
-    PUBLIC thallium PkgConfig::uuid nlohmann_json::nlohmann_json ${OPTIONAL_REMI}
+    PUBLIC thallium nlohmann_json::nlohmann_json ${OPTIONAL_REMI}
     PRIVATE ${OPTIONAL_REMI} spdlog::spdlog fmt::fmt PkgConfig::libpmemobj
             PkgConfig::abt-io stdc++fs coverage_config)
 target_include_directories (warabi-server PUBLIC $<INSTALL_INTERFACE:include>)
@@ -52,7 +49,7 @@ set_target_properties (warabi-server
 # client library
 add_library (warabi-client ${client-src-files})
 target_link_libraries (warabi-client
-    PUBLIC thallium PkgConfig::uuid nlohmann_json::nlohmann_json
+    PUBLIC thallium nlohmann_json::nlohmann_json
     PRIVATE spdlog::spdlog fmt::fmt coverage_config)
 target_include_directories (warabi-client PUBLIC $<INSTALL_INTERFACE:include>)
 target_include_directories (warabi-client BEFORE PUBLIC
@@ -60,19 +57,6 @@ target_include_directories (warabi-client BEFORE PUBLIC
 target_include_directories (warabi-client BEFORE PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>)
 set_target_properties (warabi-client
-    PROPERTIES VERSION ${WARABI_VERSION}
-    SOVERSION ${WARABI_VERSION_MAJOR})
-
-# admin library
-add_library (warabi-admin ${admin-src-files})
-target_link_libraries (warabi-admin PUBLIC thallium PkgConfig::uuid nlohmann_json::nlohmann_json
-    PRIVATE spdlog::spdlog fmt::fmt coverage_config)
-target_include_directories (warabi-admin PUBLIC $<INSTALL_INTERFACE:include>)
-target_include_directories (warabi-admin BEFORE PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>)
-target_include_directories (warabi-admin BEFORE PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>)
-set_target_properties (warabi-admin
     PROPERTIES VERSION ${WARABI_VERSION}
     SOVERSION ${WARABI_VERSION_MAJOR})
 
@@ -85,18 +69,6 @@ target_include_directories (warabi-c-error BEFORE PUBLIC
 target_include_directories (warabi-c-error BEFORE PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>)
 set_target_properties (warabi-c-error
-    PROPERTIES VERSION ${WARABI_VERSION}
-    SOVERSION ${WARABI_VERSION_MAJOR})
-
-# C admin library
-add_library (warabi-c-admin ${CMAKE_CURRENT_SOURCE_DIR}/c/admin.cpp)
-target_link_libraries (warabi-c-admin PUBLIC warabi-c-error PRIVATE warabi-admin coverage_config)
-target_include_directories (warabi-c-admin PUBLIC $<INSTALL_INTERFACE:include>)
-target_include_directories (warabi-c-admin BEFORE PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>)
-target_include_directories (warabi-c-admin BEFORE PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>)
-set_target_properties (warabi-c-admin
     PROPERTIES VERSION ${WARABI_VERSION}
     SOVERSION ${WARABI_VERSION_MAJOR})
 
@@ -127,7 +99,7 @@ set_target_properties (warabi-c-server
 if (${ENABLE_BEDROCK})
 # bedrock module library
 add_library (warabi-bedrock-module ${module-src-files})
-target_link_libraries (warabi-bedrock-module warabi-server warabi-admin warabi-client bedrock-server coverage_config)
+target_link_libraries (warabi-bedrock-module warabi-server warabi-client bedrock-server coverage_config)
 target_include_directories (warabi-bedrock-module PUBLIC $<INSTALL_INTERFACE:include>)
 target_include_directories (warabi-bedrock-module BEFORE PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>)
@@ -156,20 +128,17 @@ configure_package_config_file (warabi-config.cmake.in
 set (DEST_DIR "${CMAKE_INSTALL_PREFIX}")
 set (SERVER_PRIVATE_LIBS "-lwarabi-server")
 set (CLIENT_PRIVATE_LIBS "-lwarabi-client")
-set (ADMIN_PRIVATE_LIBS  "-lwarabi-admin")
 configure_file ("warabi-server.pc.in" "warabi-server.pc" @ONLY)
 configure_file ("warabi-client.pc.in" "warabi-client.pc" @ONLY)
-configure_file ("warabi-admin.pc.in"  "warabi-admin.pc"  @ONLY)
 configure_file ("warabi-c-server.pc.in" "warabi-c-server.pc" @ONLY)
 configure_file ("warabi-c-client.pc.in" "warabi-c-client.pc" @ONLY)
-configure_file ("warabi-c-admin.pc.in"  "warabi-c-admin.pc"  @ONLY)
 
 # configure config.h
 configure_file ("config.h.in" "config.h" @ONLY)
 
 # "make install" rules
-install (TARGETS warabi-admin warabi-server warabi-client
-                 warabi-c-error warabi-c-admin warabi-c-client warabi-c-server
+install (TARGETS warabi-server warabi-client
+                 warabi-c-error warabi-c-client warabi-c-server
          EXPORT warabi-targets
          ARCHIVE DESTINATION lib
          LIBRARY DESTINATION lib)
@@ -192,8 +161,6 @@ install (DIRECTORY ../include/warabi
          FILES_MATCHING PATTERN "*.hpp")
 install (FILES "${CMAKE_CURRENT_BINARY_DIR}/warabi-server.pc"
                "${CMAKE_CURRENT_BINARY_DIR}/warabi-client.pc"
-               "${CMAKE_CURRENT_BINARY_DIR}/warabi-admin.pc"
                "${CMAKE_CURRENT_BINARY_DIR}/warabi-c-server.pc"
                "${CMAKE_CURRENT_BINARY_DIR}/warabi-c-client.pc"
-               "${CMAKE_CURRENT_BINARY_DIR}/warabi-c-admin.pc"
          DESTINATION "lib/pkgconfig/")

@@ -45,10 +45,9 @@ extern "C" warabi_err_t warabi_client_make_target_handle(
         warabi_client_t client,
         const char* address,
         uint16_t provider_id,
-        const warabi_target_id target_id,
         warabi_target_handle_t* th) {
     try {
-        auto t = client->makeTargetHandle(address, provider_id, target_id);
+        auto t = client->makeTargetHandle(address, provider_id);
         *th = new warabi_target_handle{std::move(t)};
     } HANDLE_WARABI_ERROR;
 }

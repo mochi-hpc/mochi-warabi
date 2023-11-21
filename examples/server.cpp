@@ -26,8 +26,15 @@ int main(int argc, char** argv) {
     tl::engine engine(g_address, THALLIUM_SERVER_MODE, g_use_progress_thread, g_num_threads);
     engine.enable_remote_shutdown();
     std::vector<snt::Provider> providers;
+    auto config = R"(
+    {
+        "target": {
+            "type": "memory"
+        }
+    }
+    )";
     for(unsigned i=0 ; i < g_num_providers; i++) {
-        providers.emplace_back(engine, i);
+        providers.emplace_back(engine, i, config);
     }
     spdlog::info("Server running at address {}", (std::string)engine.self());
     engine.wait_for_finalize();

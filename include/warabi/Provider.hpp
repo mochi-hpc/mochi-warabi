@@ -37,8 +37,8 @@ class Provider {
      * @param remi_pr Remi provider for migration.
      */
     Provider(const tl::engine& engine,
-             uint16_t provider_id = 0,
-             const std::string& config = "",
+             uint16_t provider_id,
+             const std::string& config,
              const tl::pool& pool = tl::pool(),
              remi_client_t remi_cl = nullptr,
              remi_provider_t remi_pr = nullptr);
@@ -54,8 +54,8 @@ class Provider {
      * @param remi_pr Remi provider for migration.
      */
     Provider(margo_instance_id mid,
-             uint16_t provider_id = 0,
-             const std::string& config = "",
+             uint16_t provider_id,
+             const std::string& config,
              const tl::pool& pool = tl::pool(),
              remi_client_t remi_cl = nullptr,
              remi_provider_t remi_pr = nullptr);

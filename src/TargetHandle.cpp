@@ -57,8 +57,7 @@ void TargetHandle::create(RegionID* region, size_t size,
     if(not self) throw Exception("Invalid warabi::TargetHandle object");
     auto& rpc = self->m_client->m_create;
     auto& ph  = self->m_ph;
-    auto& target_id = self->m_target_id;
-    auto async_response = rpc.on(ph).async(target_id, size);
+    auto async_response = rpc.on(ph).async(size);
     if(req == nullptr) { // synchronous call
         Result<RegionID> response = async_response.wait();
         if(region) *region = std::move(response).valueOrThrow();
@@ -105,10 +104,8 @@ void TargetHandle::write(const RegionID& region,
     // eager path
     auto& rpc = self->m_client->m_write_eager;
     auto& ph  = self->m_ph;
-    auto& target_id = self->m_target_id;
     auto buffer = BufferWrapper::Ref(data, size);
-    auto async_response = rpc.on(ph).async(
-        target_id, region, regionOffsetSizes, buffer, persist);
+    auto async_response = rpc.on(ph).async(region, regionOffsetSizes, buffer, persist);
     if(req == nullptr) { // synchronous call
         Result<bool> response = async_response.wait();
         response.check();
@@ -147,8 +144,7 @@ void TargetHandle::write(const RegionID& region,
     if(not self) throw Exception("Invalid warabi::TargetHandle object");
     auto& rpc = self->m_client->m_write;
     auto& ph  = self->m_ph;
-    auto& target_id = self->m_target_id;
-    auto async_response = rpc.on(ph).async(target_id, region, regionOffsetSizes, data, address, bulkOffset, persist);
+    auto async_response = rpc.on(ph).async(region, regionOffsetSizes, data, address, bulkOffset, persist);
     if(req == nullptr) { // synchronous call
         Result<bool> response = async_response.wait();
         response.check();
@@ -178,8 +174,7 @@ void TargetHandle::persist(const RegionID& region,
     if(not self) throw Exception("Invalid warabi::TargetHandle object");
     auto& rpc = self->m_client->m_persist;
     auto& ph  = self->m_ph;
-    auto& target_id = self->m_target_id;
-    auto async_response = rpc.on(ph).async(target_id, region, regionOffsetSizes);
+    auto async_response = rpc.on(ph).async(region, regionOffsetSizes);
     if(req == nullptr) { // synchronous call
         Result<bool> response = async_response.wait();
         response.check();
@@ -210,9 +205,8 @@ void TargetHandle::createAndWrite(RegionID* region,
     // eager path
     auto& rpc = self->m_client->m_create_write_eager;
     auto& ph  = self->m_ph;
-    auto& target_id = self->m_target_id;
     auto async_response = rpc.on(ph).async(
-        target_id, BufferWrapper::Ref(data, size), persist);
+        BufferWrapper::Ref(data, size), persist);
     if(req == nullptr) { // synchronous call
         Result<RegionID> response = async_response.wait();
         if(region) *region = std::move(response).valueOrThrow();
@@ -241,8 +235,7 @@ void TargetHandle::createAndWrite(
     if(not self) throw Exception("Invalid warabi::TargetHandle object");
     auto& rpc = self->m_client->m_create_write;
     auto& ph  = self->m_ph;
-    auto& target_id = self->m_target_id;
-    auto async_response = rpc.on(ph).async(target_id, data, address, bulkOffset, size, persist);
+    auto async_response = rpc.on(ph).async(data, address, bulkOffset, size, persist);
     if(req == nullptr) { // synchronous call
         Result<RegionID> response = async_response.wait();
         if(region) *region = std::move(response).valueOrThrow();
@@ -289,8 +282,7 @@ void TargetHandle::read(
     // eager path
     auto& rpc = self->m_client->m_read_eager;
     auto& ph  = self->m_ph;
-    auto& target_id = self->m_target_id;
-    auto async_response = rpc.on(ph).async(target_id, region, regionOffsetSizes);
+    auto async_response = rpc.on(ph).async(region, regionOffsetSizes);
     if(req == nullptr) { // synchronous call
         Result<BufferWrapper> response = async_response.wait();
         response.check();
@@ -333,8 +325,7 @@ void TargetHandle::read(
     if(not self) throw Exception("Invalid warabi::TargetHandle object");
     auto& rpc = self->m_client->m_read;
     auto& ph  = self->m_ph;
-    auto& target_id = self->m_target_id;
-    auto async_response = rpc.on(ph).async(target_id, region, regionOffsetSizes, data, address, bulkOffset);
+    auto async_response = rpc.on(ph).async(region, regionOffsetSizes, data, address, bulkOffset);
     if(req == nullptr) { // synchronous call
         Result<bool> response = async_response.wait();
         response.check();
@@ -356,8 +347,7 @@ void TargetHandle::erase(const RegionID& region,
     if(not self) throw Exception("Invalid warabi::TargetHandle object");
     auto& rpc = self->m_client->m_erase;
     auto& ph  = self->m_ph;
-    auto& target_id = self->m_target_id;
-    auto async_response = rpc.on(ph).async(target_id, region);
+    auto async_response = rpc.on(ph).async(region);
     if(req == nullptr) { // synchronous call
         Result<bool> response = async_response.wait();
         response.check();

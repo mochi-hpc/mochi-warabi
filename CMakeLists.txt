@@ -49,8 +49,6 @@ endif ()
 find_package (PkgConfig REQUIRED)
 # search fo thallium
 find_package (thallium REQUIRED)
-# search for uuid
-pkg_check_modules (uuid REQUIRED IMPORTED_TARGET uuid)
 # search for nlohmann/json
 find_package (nlohmann_json REQUIRED)
 # search for TCLAP

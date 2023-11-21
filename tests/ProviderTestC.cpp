@@ -1,5 +1,5 @@
 /*
- * (C) 2020 The University of Chicago
+ * (C) 2023 The University of Chicago
  *
  * See COPYRIGHT in top-level directory.
  */
@@ -11,74 +11,35 @@
 
 using json = nlohmann::json;
 
-TEST_CASE("Provider tests in C", "[c/provider]") {
+TEST_CASE("Provider tests", "[provider]") {
 
+    // in this test, we initialize the server with a margo_instance_id
     margo_instance_id mid = margo_init("na+sm", MARGO_SERVER_MODE, 0, 0);
     DEFER(margo_finalize(mid));
 
-    SECTION("Create a provider with an empty configuration") {
-
-        // Initialize the provider
-        warabi_provider_t provider = nullptr;
-        warabi_err_t err = warabi_provider_register(&provider, mid, 0, nullptr);
-        REQUIRE(err == WARABI_SUCCESS);
-        REQUIRE(provider != nullptr);
-        DEFER(warabi_provider_deregister(provider));
-
-        // Get the configuration
-        auto config_str = warabi_provider_get_config(provider);
-        REQUIRE(config_str != nullptr);
-        DEFER(free(config_str));
-
-        auto config = json::parse(config_str);
-        json expected = {
-            {"targets", json::array()},
-            {"transfer_managers", {
-                {"__default__", {
-                    {"type", "__default__"},
-                    {"config", json::object()}
-                  }
-                }
-              }
-            }
-        };
-        REQUIRE(config == expected);
-    }
-
-    SECTION("Create a provider with targets and transfer managers") {
+    SECTION("Create a provider with a target and transfer manager") {
 
         std::string input_config = R"(
             {
-                "targets": [
-                    {
-                        "type": "memory",
-                        "config": {
-                            "transfer_manager": "my_tm"
-                        }
-                    }
-                ],
-                "transfer_managers": {
-                    "my_tm": {
-                        "type": "pipeline",
-                        "config": {
-                            "num_pools":4,
-                            "num_buffers_per_pool": 4,
-                            "first_buffer_size": 128,
-                            "buffer_size_multiple": 2
-                        }
+                "target": {
+                    "type": "memory",
+                    "config": {}
+                },
+                "transfer_manager": {
+                    "type": "pipeline",
+                    "config": {
+                        "num_pools":4,
+                        "num_buffers_per_pool": 4,
+                        "first_buffer_size": 128,
+                        "buffer_size_multiple": 2
                     }
                 }
             }
         )";
 
+        // Initialize the provider
         warabi_provider_t provider = nullptr;
-        warabi_provider_init_args args = {
-            input_config.c_str(),
-            ABT_POOL_NULL,
-            nullptr,
-            nullptr
-        };
-        warabi_err_t err = warabi_provider_register(&provider, mid, 0, &args);
+        warabi_err_t err = warabi_provider_register(&provider, mid, 42, input_config.c_str(), nullptr);
         REQUIRE(err == WARABI_SUCCESS);
         REQUIRE(provider != nullptr);
         DEFER(warabi_provider_deregister(provider));
@@ -87,21 +48,20 @@ TEST_CASE("Provider tests in C", "[c/provider]") {
         auto config_str = warabi_provider_get_config(provider);
         REQUIRE(config_str != nullptr);
         DEFER(free(config_str));
-
         auto config = json::parse(config_str);
 
-        REQUIRE((config.contains("targets") && config["targets"].is_array()));
-        REQUIRE(config["targets"].size() == 1);
-        REQUIRE(config["targets"][0].is_object());
-        REQUIRE(config["targets"][0].contains("__id__"));
-        REQUIRE(config["targets"][0]["__id__"].is_string());
-        REQUIRE(config["targets"][0]["__id__"].get<std::string>().size() == 36);
-        config["targets"][0].erase("__id__"); // the id changes every time
-                                              //
-        json expected = json::parse(input_config);
-        expected["transfer_managers"]["__default__"] =
-            {{"type", "__default__"},
-             {"config", json::object()}};
-        REQUIRE(config == expected);
+        REQUIRE(config.contains("target"));
+        REQUIRE(config["target"].is_object());
+        REQUIRE(config["target"].contains("type"));
+        REQUIRE(config["target"]["type"].is_string());
+        REQUIRE(config["target"].contains("config"));
+        REQUIRE(config["target"]["config"].is_object());
+
+        REQUIRE(config.contains("transfer_manager"));
+        REQUIRE(config["transfer_manager"].is_object());
+        REQUIRE(config["transfer_manager"].contains("type"));
+        REQUIRE(config["transfer_manager"]["type"].is_string());
+        REQUIRE(config["transfer_manager"].contains("config"));
+        REQUIRE(config["transfer_manager"]["config"].is_object());
     }
 }

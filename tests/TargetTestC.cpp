@@ -7,7 +7,6 @@
 #include <catch2/catch_all.hpp>
 #include <warabi/client.h>
 #include <warabi/Provider.hpp>
-#include <warabi/Admin.hpp>
 #include "defer.hpp"
 #include "configs.hpp"
 
@@ -19,44 +18,16 @@ TEST_CASE("Target tests in C", "[c/target]") {
     CAPTURE(target_type);
     CAPTURE(tm_type);
 
-    auto target_config = makeConfigForBackend(target_type);
-    auto tm_config = makeConfigForTransferManager(tm_type);
+    auto pr_config = makeConfigForProvider(target_type, tm_type);
 
     auto engine = thallium::engine("na+sm", THALLIUM_SERVER_MODE);
     DEFER(engine.finalize());
 
-    warabi::Admin admin(engine);
-    warabi::Provider provider(engine);
-    std::string addr = engine.self();
-    admin.addTransferManager(addr, 0, "tm", tm_type, tm_config);
-    auto target_id = admin.addTarget(addr, 0, target_type, target_config);
-    DEFER(admin.destroyTarget(addr, 0, target_id));
-
-    SECTION("Create bad TargetHandles") {
-        warabi_err_t err = WARABI_SUCCESS;
-        DEFER(warabi_err_free(err));
-
-        warabi_client_t client = nullptr;
-        err = warabi_client_create(engine.get_margo_instance(), &client);
-        REQUIRE(err == WARABI_SUCCESS);
-
-        std::string addr = engine.self();
-
-        warabi_target_handle_t th = nullptr;;
-
-        /* make a TargetHandle with a bad target ID */
-        auto bad_id = warabi::UUID::generate();
-        err = warabi_client_make_target_handle(client, addr.c_str(), 0, bad_id.m_data, &th);
-        REQUIRE(err != WARABI_SUCCESS);
-        warabi_err_free(err); err = WARABI_SUCCESS;
-
-        /* make a TargetHandle with a bad provider ID */
-        err = warabi_client_make_target_handle(client, addr.c_str(), 1, target_id.m_data, &th);
-        REQUIRE(err != WARABI_SUCCESS);
-        warabi_err_free(err); err = WARABI_SUCCESS;
-    }
+    // Initialize the provider
+    warabi::Provider provider(engine, 42, pr_config);
 
     SECTION("Access target via a TargetHandle") {
+
         warabi_err_t err = WARABI_SUCCESS;
         DEFER(warabi_err_free(err));
 
@@ -69,7 +40,7 @@ TEST_CASE("Target tests in C", "[c/target]") {
 
         warabi_target_handle_t th = nullptr;;
 
-        err = warabi_client_make_target_handle(client, addr.c_str(), 0, target_id.m_data, &th);
+        err = warabi_client_make_target_handle(client, addr.c_str(), 42, &th);
         REQUIRE(err == WARABI_SUCCESS);
         DEFER(warabi_target_handle_free(th));
 

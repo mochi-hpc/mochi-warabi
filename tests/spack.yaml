@@ -2,7 +2,6 @@ spack:
   specs:
   - cmake
   - pkgconfig
-  - uuid
   - mochi-thallium
   - mochi-abt-io
   - nlohmann-json

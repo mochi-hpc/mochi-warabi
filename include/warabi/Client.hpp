@@ -7,7 +7,6 @@
 #define __WARABI_CLIENT_HPP
 
 #include <warabi/TargetHandle.hpp>
-#include <warabi/UUID.hpp>
 #include <thallium.hpp>
 #include <memory>
 
@@ -82,15 +81,11 @@ class Client {
      *
      * @param address Address of the provider holding the database.
      * @param provider_id Provider id.
-     * @param target_id Target UUID.
-     * @param check Checks if the Target exists by issuing an RPC.
      *
      * @return a TargetHandle instance.
      */
     TargetHandle makeTargetHandle(const std::string& address,
-                                      uint16_t provider_id,
-                                      const UUID& target_id,
-                                      bool check = true) const;
+                                  uint16_t provider_id) const;
 
     /**
      * @brief Checks that the Client instance is valid.

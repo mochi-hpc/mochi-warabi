@@ -49,19 +49,10 @@ Client::operator bool() const {
 
 TargetHandle Client::makeTargetHandle(
         const std::string& address,
-        uint16_t provider_id,
-        const UUID& target_id,
-        bool check) const {
+        uint16_t provider_id) const {
     auto endpoint  = self->m_engine.lookup(address);
     auto ph        = tl::provider_handle(endpoint, provider_id);
-    Result<bool> result;
-    if(check) {
-        result = self->m_check_target.on(ph)(target_id);
-    }
-    return result.andThen([&]() {
-        auto target_impl = std::make_shared<TargetHandleImpl>(self, std::move(ph), target_id);
-        return TargetHandle(target_impl);
-    });
+    return std::make_shared<TargetHandleImpl>(self, std::move(ph));
 }
 
 std::string Client::getConfig() const {
