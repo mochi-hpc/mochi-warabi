@@ -62,43 +62,19 @@ extern "C" char* warabi_client_get_config(warabi_client_t client) {
     return strdup(config.c_str());
 }
 
-extern "C" warabi_err_t warabi_region_free(warabi_region_t region) {
-    delete region.opaque;
-    return nullptr;
-}
-
-extern "C" warabi_err_t warabi_region_serialize(
-        warabi_region_t region,
-        void (*serialization_fn)(void*, const void*, size_t),
-        void* uargs) {
-    if(!region.opaque) {
-        return new warabi_err{"Invalid Region ID"};
-    }
-    serialization_fn(uargs, region.opaque + 1, region.opaque[0] - 1);
-    return nullptr;
-}
-
-extern "C" warabi_err_t warabi_region_deserialize(
-        warabi_region_t* region,
-        const void* data, size_t size) {
-    new((void*)region) warabi::RegionID{data, (uint8_t)size};
-    return nullptr;
-}
-
 extern "C" warabi_err_t warabi_create(
         warabi_target_handle_t th,
         size_t size,
         warabi_region_t* region,
         warabi_async_request_t* req) {
     try {
-        auto region_id = reinterpret_cast<warabi::RegionID*>(region);
-        region_id->content = nullptr;
+        auto rid = reinterpret_cast<warabi::RegionID*>(region);
         if(req) {
             warabi::AsyncRequest async_req;
-            th->create(region_id, size, &async_req);
+            th->create(rid, size, &async_req);
             *req = new warabi_async_request{std::move(async_req)};
         } else {
-            th->create(region_id, size);
+            th->create(rid, size);
         }
     } HANDLE_WARABI_ERROR;
 }
@@ -223,14 +199,13 @@ extern "C" warabi_err_t warabi_create_write(
         warabi_region_t* region,
         warabi_async_request_t* req) {
     try {
-        auto region_id = reinterpret_cast<warabi::RegionID*>(region);
-        region_id->content = nullptr;
+        auto rid = reinterpret_cast<warabi::RegionID*>(region);
         if(req) {
             warabi::AsyncRequest async_req;
-            th->createAndWrite(region_id, data, size, persist, &async_req);
+            th->createAndWrite(rid, data, size, persist, &async_req);
             *req = new warabi_async_request{std::move(async_req)};
         } else {
-            th->createAndWrite(region_id, data, size, persist);
+            th->createAndWrite(rid, data, size, persist);
         }
     } HANDLE_WARABI_ERROR;
 }
@@ -244,7 +219,6 @@ extern "C" warabi_err_t warabi_create_write_bulk(
         warabi_async_request_t* req) {
     try {
         auto region_id = reinterpret_cast<warabi::RegionID*>(region);
-        region_id->content = nullptr;
         auto engine = th->client().engine();
         if(req) {
             warabi::AsyncRequest async_req;

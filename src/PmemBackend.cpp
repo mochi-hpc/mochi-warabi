@@ -18,17 +18,14 @@ namespace warabi {
 WARABI_REGISTER_BACKEND(pmdk, PmemTarget);
 
 static inline RegionID PMEMoidToRegionID(const PMEMoid& oid) {
-    return RegionID{static_cast<const void*>(&oid), sizeof(oid)};
+    RegionID rid;
+    std::memcpy(rid.data(), static_cast<const void*>(&oid), sizeof(oid));
+    return rid;
 }
 
-static inline Result<PMEMoid> RegionIDtoPMEMoid(const RegionID& regionID) {
-    Result<PMEMoid> result;
-    if(!regionID.content || regionID.content[0] != sizeof(PMEMoid)+1) {
-        result.error() = "Invalid RegionID format";
-        result.success() = false;
-    } else {
-        std::memcpy(&result.value(), regionID.content+1, sizeof(PMEMoid));
-    }
+static inline PMEMoid RegionIDtoPMEMoid(const RegionID& regionID) {
+    PMEMoid result;
+    std::memcpy(&result, regionID.data(), sizeof(PMEMoid));
     return result;
 }
 
@@ -196,42 +193,43 @@ Result<std::unique_ptr<WritableRegion>> PmemTarget::create(size_t size) {
 Result<std::unique_ptr<WritableRegion>> PmemTarget::write(const RegionID& region_id, bool persist) {
     (void)persist;
     Result<std::unique_ptr<WritableRegion>> result;
-    Result<PMEMoid> oid = RegionIDtoPMEMoid(region_id);
-    if(!oid.success()) {
+    PMEMoid oid = RegionIDtoPMEMoid(region_id);
+    char* ptr = (char*)pmemobj_direct_inline(oid);
+    if(!ptr) {
         result.success() = false;
-        result.error() = oid.error();
+        result.error() = "Invalid RegionID";
         return result;
     }
-    char* ptr = (char*)pmemobj_direct_inline(oid.value());
     m_migration_lock.rdlock();
     result.value() = std::make_unique<PmemRegion>(this, region_id, ptr);
     return result;
 }
 
 Result<std::unique_ptr<ReadableRegion>> PmemTarget::read(const RegionID& region_id) {
-    Result<PMEMoid> oid = RegionIDtoPMEMoid(region_id);
+    PMEMoid oid = RegionIDtoPMEMoid(region_id);
     Result<std::unique_ptr<ReadableRegion>> result;
-    if(!oid.success()) {
+    char* ptr = (char*)pmemobj_direct_inline(oid);
+    if(!ptr) {
         result.success() = false;
-        result.error() = oid.error();
+        result.error() = "Invalid RegionID";
         return result;
     }
-    char* ptr = (char*)pmemobj_direct_inline(oid.value());
     m_migration_lock.rdlock();
     result.value() = std::make_unique<PmemRegion>(this, region_id, ptr);
     return result;
 }
 
 Result<bool> PmemTarget::erase(const RegionID& region_id) {
-    Result<PMEMoid> oid = RegionIDtoPMEMoid(region_id);
+    auto oid = RegionIDtoPMEMoid(region_id);
     Result<bool> result;
-    if(!oid.success()) {
+    char* ptr = (char*)pmemobj_direct_inline(oid);
+    if(!ptr) {
         result.success() = false;
-        result.error() = oid.error();
+        result.error() = "Invalid RegionID";
         return result;
     }
     m_migration_lock.rdlock();
-    pmemobj_free(&oid.value());
+    pmemobj_free(&oid);
     return result;
 }
 

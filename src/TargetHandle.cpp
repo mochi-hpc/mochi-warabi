@@ -15,6 +15,7 @@
 #include <thallium/serialization/stl/string.hpp>
 #include <thallium/serialization/stl/vector.hpp>
 #include <thallium/serialization/stl/pair.hpp>
+#include <thallium/serialization/stl/array.hpp>
 
 namespace warabi {
 

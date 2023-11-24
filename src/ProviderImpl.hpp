@@ -23,6 +23,7 @@
 #include <thallium/serialization/stl/string.hpp>
 #include <thallium/serialization/stl/pair.hpp>
 #include <thallium/serialization/stl/vector.hpp>
+#include <thallium/serialization/stl/array.hpp>
 
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>

@@ -62,7 +62,6 @@ TEST_CASE("Target tests in C", "[c/target]") {
             warabi_region_t region;
             err = warabi_create(th, in.size(), &region, nullptr);
             REQUIRE(err == WARABI_SUCCESS);
-            DEFER(warabi_region_free(region));
 
             /* write into the region */
             err = warabi_write(th, region, 0, in.data(), in.size(), false, nullptr);
@@ -95,8 +94,6 @@ TEST_CASE("Target tests in C", "[c/target]") {
             err = warabi_read(th, invalid_region, 0, out.data(), out.size(), nullptr);
             REQUIRE(err != WARABI_SUCCESS);
             warabi_err_free(err); err = WARABI_SUCCESS;
-
-            warabi_region_free(region);
 
             /* use createWrite */
             err = warabi_create_write(th, in.data(), in.size(), true, &region, nullptr);
@@ -137,7 +134,6 @@ TEST_CASE("Target tests in C", "[c/target]") {
             REQUIRE(err == WARABI_SUCCESS);
             err = warabi_wait(req);
             REQUIRE(err == WARABI_SUCCESS);
-            DEFER(warabi_region_free(region));
 
             /* write into the region */
             err = warabi_write(th, region, 0, in.data(), in.size(), false, &req);
@@ -181,8 +177,6 @@ TEST_CASE("Target tests in C", "[c/target]") {
             err = warabi_wait(req);
             REQUIRE(err != WARABI_SUCCESS);
             warabi_err_free(err); err = WARABI_SUCCESS;
-
-            warabi_region_free(region);
 
             /* use createWrite */
             err = warabi_create_write(th, in.data(), in.size(), true, &region, &req);

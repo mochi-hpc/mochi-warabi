@@ -24,7 +24,7 @@ typedef struct warabi_async_request* warabi_async_request_t;
 #define WARABI_ASYNC_REQUEST_IGNORE ((warabi_async_request_t)0)
 
 typedef struct warabi_region {
-    uint8_t* opaque;
+    uint8_t opaque[16];
 } warabi_region_t;
 
 /**
@@ -68,31 +68,6 @@ warabi_err_t warabi_target_handle_free(warabi_target_handle_t th);
  * @param client Client.
  */
 char* warabi_client_get_config(warabi_client_t client);
-
-/**
- * @brief Free the region's opaque data.
- */
-warabi_err_t warabi_region_free(warabi_region_t region);
-
-/**
- * @brief Serialize a region by passing its data into a callback.
- * uargs is passed as first argument of the callback.
- */
-warabi_err_t warabi_region_serialize(
-    warabi_region_t region,
-    void (*serialization_fn)(void*, const void*, size_t),
-    void* uargs);
-
-/**
- * @brief Deserialize a region from a data buffer and a size.
- *
- * @param[out] region Resulting region.
- * @param[in] data Serialized region.
- * @param[in] size Size of the serialized region.
- */
-warabi_err_t warabi_region_deserialize(
-    warabi_region_t* region,
-    const void* data, size_t size);
 
 /**
  * @brief Create a region.

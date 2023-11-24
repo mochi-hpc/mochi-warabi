@@ -135,18 +135,19 @@ Result<std::unique_ptr<WritableRegion>> MemoryTarget::create(size_t size) {
     auto lock = std::unique_lock<thallium::mutex>{m_mutex};
     m_regions.emplace_back(size);
     auto& region = m_regions.back();
-    size_t index = m_regions.size() - 1;
-    auto region_id = RegionID(static_cast<void*>(&index), sizeof(index));
+    uint64_t index = m_regions.size() - 1;
+    RegionID region_id;
+    uint64_t s = size;
+    std::memcpy(region_id.data(), static_cast<void*>(&index), sizeof(index));
+    std::memcpy(region_id.data() + sizeof(index), static_cast<void*>(&s), sizeof(s));
     result.value() = std::make_unique<MemoryRegion>(m_engine, region_id, region, std::move(lock));
     return result;
 }
 
 ssize_t MemoryTarget::regiondIDtoIndex(const RegionID& regionID) {
-    if(!regionID.content || regionID.content[0] != sizeof(size_t)+1)
-        return -1;
-    size_t r = 0;
-    std::memcpy(&r, regionID.content + 1, sizeof(r));
-    return r;
+    uint64_t r = 0;
+    std::memcpy(&r, regionID.data(), sizeof(r));
+    return static_cast<ssize_t>(r);
 }
 
 Result<std::unique_ptr<WritableRegion>> MemoryTarget::write(const RegionID& region_id, bool persist) {

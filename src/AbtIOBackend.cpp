@@ -25,20 +25,19 @@ namespace warabi {
 
 WARABI_REGISTER_BACKEND(abtio, AbtIOTarget);
 
-static inline RegionID OffsetSizeToRegionID(const size_t offset, const size_t size) {
-    auto p = std::make_pair(offset, size);
-    return RegionID{static_cast<const void*>(&p), sizeof(p)};
+static inline auto OffsetSizeToRegionID(const size_t offset, const size_t size) {
+    const uint64_t o = offset, s = size;
+    RegionID rid;
+    std::memcpy(rid.data(), &o, sizeof(o));
+    std::memcpy(rid.data() + sizeof(o), &s, sizeof(s));
+    return rid;
 }
 
-static inline Result<std::pair<size_t,size_t>> RegionIDtoOffsetSize(const RegionID& regionID) {
-    Result<std::pair<size_t,size_t>> result;
-    if(!regionID.content || regionID.content[0] != sizeof(std::pair<size_t,size_t>)+1) {
-        result.error() = "Invalid RegionID format";
-        result.success() = false;
-    } else {
-        std::memcpy(static_cast<void*>(&result.value()), regionID.content+1, sizeof(std::pair<size_t,size_t>));
-    }
-    return result;
+static inline auto RegionIDtoOffsetSize(const RegionID& rid) {
+    std::pair<uint64_t,uint64_t> p;
+    std::memcpy(&p.first, rid.data(), sizeof(p.first));
+    std::memcpy(&p.second, rid.data() + sizeof(p.first), sizeof(p.second));
+    return p;
 }
 
 struct AbtIORegion : public WritableRegion, public ReadableRegion {
@@ -295,44 +294,28 @@ Result<std::unique_ptr<WritableRegion>> AbtIOTarget::write(const RegionID& regio
         return result;
     }
     auto regionOffsetSize = RegionIDtoOffsetSize(region_id);
-    if(!regionOffsetSize.success()) {
-        result.success() = false;
-        result.error() = regionOffsetSize.error();
-        m_migration_lock.unlock();
-        return result;
-    }
     result.value() = std::make_unique<AbtIORegion>(
-        this, region_id, regionOffsetSize.value().first);
+        this, region_id, regionOffsetSize.first);
     return result;
 }
 
 Result<std::unique_ptr<ReadableRegion>> AbtIOTarget::read(const RegionID& region_id) {
     Result<std::unique_ptr<ReadableRegion>> result;
     auto regionOffsetSize = RegionIDtoOffsetSize(region_id);
-    if(!regionOffsetSize.success()) {
-        result.success() = false;
-        result.error() = regionOffsetSize.error();
-        return result;
-    }
     m_migration_lock.rdlock();
     result.value() = std::make_unique<AbtIORegion>(
-        this, region_id, regionOffsetSize.value().first);
+        this, region_id, regionOffsetSize.first);
     return result;
 }
 
 Result<bool> AbtIOTarget::erase(const RegionID& region_id) {
     Result<bool> result;
     auto regionOffsetSize = RegionIDtoOffsetSize(region_id);
-    if(!regionOffsetSize.success()) {
-        result.success() = false;
-        result.error() = regionOffsetSize.error();
-        return result;
-    }
     m_migration_lock.rdlock();
     int ret = abt_io_fallocate(
         m_abtio, m_fd,
         FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE,
-        regionOffsetSize.value().first, regionOffsetSize.value().second);
+        regionOffsetSize.first, regionOffsetSize.second);
     if(ret != 0) {
         result.error() = "abt_io_fallocate failed to erase region";
         result.success() = false;
