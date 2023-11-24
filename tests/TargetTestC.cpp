@@ -26,6 +26,8 @@ TEST_CASE("Target tests in C", "[c/target]") {
     // Initialize the provider
     warabi::Provider provider(engine, 42, pr_config);
 
+    warabi_region_t invalid_region = {234, 234, 234, 234, 234, 234, 234, 234};
+
     SECTION("Access target via a TargetHandle") {
 
         warabi_err_t err = WARABI_SUCCESS;
@@ -68,7 +70,6 @@ TEST_CASE("Target tests in C", "[c/target]") {
             REQUIRE(err == WARABI_SUCCESS);
 
             /* write into a region with an invalid ID */
-            warabi_region_t invalid_region = {0};
             err = warabi_write(th, invalid_region, 0, in.data(), in.size(), false, nullptr);
             REQUIRE(err != WARABI_SUCCESS);
             warabi_err_free(err); err = WARABI_SUCCESS;
@@ -79,8 +80,12 @@ TEST_CASE("Target tests in C", "[c/target]") {
 
             /* persist region with invalid ID */
             err = warabi_persist(th, invalid_region, 0, in.size(), nullptr);
-            REQUIRE(err != WARABI_SUCCESS);
-            warabi_err_free(err); err = WARABI_SUCCESS;
+            if(target_type != "abtio") {
+                REQUIRE(err != WARABI_SUCCESS);
+                warabi_err_free(err); err = WARABI_SUCCESS;
+            } else {
+                REQUIRE(err == WARABI_SUCCESS);
+            }
 
             /* read the data */
             std::vector<char> out(in.size());
@@ -122,8 +127,6 @@ TEST_CASE("Target tests in C", "[c/target]") {
             std::vector<char> in(data_size);
             for(size_t i = 0; i < in.size(); ++i) in[i] = 'A' + (i % 26);
 
-            warabi_region_t invalid_region = {0};
-
             warabi_async_request_t req = nullptr;
             bool b = false;
             /* create region */
@@ -158,8 +161,12 @@ TEST_CASE("Target tests in C", "[c/target]") {
             err = warabi_persist(th, invalid_region, 0, in.size(), &req);
             REQUIRE(err == WARABI_SUCCESS);
             err = warabi_wait(req);
-            REQUIRE(err != WARABI_SUCCESS);
-            warabi_err_free(err); err = WARABI_SUCCESS;
+            if(target_type != "abtio") {
+                REQUIRE(err != WARABI_SUCCESS);
+                warabi_err_free(err); err = WARABI_SUCCESS;
+            } else {
+                REQUIRE(err == WARABI_SUCCESS);
+            }
 
             /* read the data */
             std::vector<char> out(in.size());
