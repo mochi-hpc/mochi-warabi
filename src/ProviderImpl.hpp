@@ -58,47 +58,9 @@ static constexpr const char* configSchema = R"(
         "config": {"type": "object"}
       }
     }
-  },
-  "required": ["target"]
+  }
 }
 )";
-
-/**
- * @brief This class automatically deregisters a tl::remote_procedure
- * when the ProviderImpl's destructor is called.
- */
-struct AutoDeregistering : public tl::remote_procedure {
-
-    AutoDeregistering(tl::remote_procedure rpc)
-    : tl::remote_procedure(std::move(rpc)) {}
-
-    ~AutoDeregistering() {
-        deregister();
-    }
-};
-
-/**
- * @brief This class automatically calls req.respond(resp)
- * when its constructor is called, helping developers not
- * forget to respond in all code branches.
- */
-template<typename ResponseType>
-struct AutoResponse {
-
-    AutoResponse(const tl::request& req, ResponseType& resp)
-    : m_req(req)
-    , m_resp(resp) {}
-
-    AutoResponse(const AutoResponse&) = delete;
-    AutoResponse(AutoResponse&&) = delete;
-
-    ~AutoResponse() {
-        m_req.respond(m_resp);
-    }
-
-    const tl::request& m_req;
-    ResponseType&      m_resp;
-};
 
 class ProviderImpl : public tl::provider<ProviderImpl> {
 
@@ -129,15 +91,15 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
     remi_client_t   m_remi_client;
     remi_provider_t m_remi_provider;
 
-    AutoDeregistering m_create;
-    AutoDeregistering m_write;
-    AutoDeregistering m_write_eager;
-    AutoDeregistering m_persist;
-    AutoDeregistering m_create_write;
-    AutoDeregistering m_create_write_eager;
-    AutoDeregistering m_read;
-    AutoDeregistering m_read_eager;
-    AutoDeregistering m_erase;
+    tl::auto_remote_procedure m_create;
+    tl::auto_remote_procedure m_write;
+    tl::auto_remote_procedure m_write_eager;
+    tl::auto_remote_procedure m_persist;
+    tl::auto_remote_procedure m_create_write;
+    tl::auto_remote_procedure m_create_write_eager;
+    tl::auto_remote_procedure m_read;
+    tl::auto_remote_procedure m_read_eager;
+    tl::auto_remote_procedure m_erase;
 
     // Backend
     std::shared_ptr<Backend>         m_target;
@@ -238,7 +200,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
             setTransferManager(transfer_manager_type, transfer_manager_config);
         }
 
-        {
+        if(json_config.contains("target")) {
             auto& target = json_config["target"];
             auto& target_type = target["type"].get_ref<const std::string&>();
             auto target_config = target.value("config", json::object());
@@ -256,10 +218,12 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
 
     std::string getConfig() const {
         auto config = json::object();
-        config["target"] = json::object();
-        auto& target = config["target"];
-        target["type"] = m_target->name();
-        target["config"] = json::parse(m_target->getConfig());
+        if(m_target) {
+            config["target"] = json::object();
+            auto& target = config["target"];
+            target["type"] = m_target->name();
+            target["config"] = json::parse(m_target->getConfig());
+        }
         config["transfer_manager"] = json::object();
         auto& tm = config["transfer_manager"];
         tm["type"] = m_transfer_manager->name();
@@ -315,7 +279,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
 #if 0
         trace("Received migrateTarget request for target {}", target_id.to_string());
         Result<bool> result;
-        AutoResponse<decltype(result)> response{req, result};
+        tl::auto_respond<decltype(result)> response{req, result};
 #ifndef WARABI_HAS_REMI
         result.error() = "Warabi was not compiled with REMI support";
         result.success() = false;
@@ -408,7 +372,12 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
                    size_t size) {
         trace("Received create request with size {}", size);
         Result<RegionID> result;
-        AutoResponse<decltype(result)> response{req, result};
+        tl::auto_respond<decltype(result)> response{req, result};
+        if(!m_target) {
+            result.success() = false;
+            result.error() = "No target found in the provider";
+            return;
+        }
         auto region = m_target->create(size);
         if(!region.success()) {
             result.success() = false;
@@ -428,7 +397,12 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
                   bool persist) {
         trace("Received write request");
         Result<bool> result;
-        AutoResponse<decltype(result)> response{req, result};
+        tl::auto_respond<decltype(result)> response{req, result};
+        if(!m_target) {
+            result.success() = false;
+            result.error() = "No target found in the provider";
+            return;
+        }
         auto region = m_target->write(region_id, persist);
         if(!region.success()) {
             result.success() = false;
@@ -448,7 +422,12 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
                        bool persist) {
         trace("Received write_eager request");
         Result<bool> result;
-        AutoResponse<decltype(result)> response{req, result};
+        tl::auto_respond<decltype(result)> response{req, result};
+        if(!m_target) {
+            result.success() = false;
+            result.error() = "No target found in the provider";
+            return;
+        }
         auto region = m_target->write(region_id, persist);
         if(!region.success()) {
             result.success() = false;
@@ -464,7 +443,12 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
                     const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes) {
         trace("Received persist request");
         Result<bool> result;
-        AutoResponse<decltype(result)> response{req, result};
+        tl::auto_respond<decltype(result)> response{req, result};
+        if(!m_target) {
+            result.success() = false;
+            result.error() = "No target found in the provider";
+            return;
+        }
         auto region = m_target->write(region_id, true);
         if(!region.success()) {
             result.success() = false;
@@ -482,7 +466,12 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
                         bool persist) {
         trace("Received create_write request");
         Result<RegionID> result;
-        AutoResponse<decltype(result)> response{req, result};
+        tl::auto_respond<decltype(result)> response{req, result};
+        if(!m_target) {
+            result.success() = false;
+            result.error() = "No target found in the provider";
+            return;
+        }
         auto region = m_target->create(size);
         if(!region.success()) {
             result.success() = false;
@@ -506,7 +495,12 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
                              bool persist) {
         trace("Received create_write_eager request");
         Result<RegionID> result;
-        AutoResponse<decltype(result)> response{req, result};
+        tl::auto_respond<decltype(result)> response{req, result};
+        if(!m_target) {
+            result.success() = false;
+            result.error() = "No target found in the provider";
+            return;
+        }
         auto region = m_target->create(buffer.size());
         if(!region.success()) {
             result.success() = false;
@@ -531,7 +525,12 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
                  size_t bulkOffset) {
         trace("Received read request");
         Result<bool> result;
-        AutoResponse<decltype(result)> response{req, result};
+        tl::auto_respond<decltype(result)> response{req, result};
+        if(!m_target) {
+            result.success() = false;
+            result.error() = "No target found in the provider";
+            return;
+        }
         auto region = m_target->read(region_id);
         if(!region.value()) {
             result.success() = false;
@@ -549,7 +548,12 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
                       const std::vector<std::pair<size_t, size_t>>& regionOffsetSizes) {
         trace("Received read_eager request");
         Result<BufferWrapper> result;
-        AutoResponse<decltype(result)> response{req, result};
+        tl::auto_respond<decltype(result)> response{req, result};
+        if(!m_target) {
+            result.success() = false;
+            result.error() = "No target found in the provider";
+            return;
+        }
         auto region = m_target->read(region_id);
         if(!region.value()) {
             result.success() = false;
@@ -571,7 +575,12 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
                   const RegionID& region_id) {
         trace("Received erase request");
         Result<bool> result;
-        AutoResponse<decltype(result)> response{req, result};
+        tl::auto_respond<decltype(result)> response{req, result};
+        if(!m_target) {
+            result.success() = false;
+            result.error() = "No target found in the provider";
+            return;
+        }
         result = m_target->erase(region_id);
         trace("Successfully executed erase request");
     }
