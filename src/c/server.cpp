@@ -40,3 +40,13 @@ extern "C" warabi_err_t warabi_provider_deregister(
 extern "C" char* warabi_provider_get_config(warabi_provider_t provider) {
     return strdup(provider->getConfig().c_str());
 }
+
+extern "C" warabi_err_t warabi_provider_migrate(warabi_provider_t provider,
+                                                const char* dest_addr,
+                                                uint16_t dest_provider_id,
+                                                const char* migration_config) {
+    try {
+        provider->migrateTarget(
+            dest_addr, dest_provider_id, migration_config ? migration_config : "");
+    } HANDLE_WARABI_ERROR;
+}

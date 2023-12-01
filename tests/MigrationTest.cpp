@@ -65,8 +65,7 @@ TEST_CASE("Target migration test", "[migration]") {
             "new_root": "/tmp/warabi-migrated-targets",
             "transfer_size": 1024,
             "merge_config": {},
-            "remove_source": true,
-            "remove_destination": false
+            "remove_source": true
         })";
         REQUIRE_NOTHROW(provider1.migrateTarget(addr, 2, migrationOptions));
 

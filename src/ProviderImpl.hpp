@@ -536,8 +536,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
                 "new_root": {"type": "string"},
                 "transfer_size": {"type": "integer", "minimum": 0},
                 "merge_config": {"type": "object"},
-                "remove_source": {"type": "boolean"},
-                "remove_destination": {"type": "boolean"}
+                "remove_source": {"type": "boolean"}
             }
         })";
         static const json migrationJsonSchema = json::parse(migrationJsonSchemaStr);

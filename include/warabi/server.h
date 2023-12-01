@@ -53,6 +53,22 @@ warabi_err_t warabi_provider_deregister(warabi_provider_t provider);
  */
 char* warabi_provider_get_config(warabi_provider_t provider);
 
+/**
+ * @brief Request that the provider migrate its target to another
+ * provider.
+ *
+ * @param provider Provider whose target to migrate.
+ * @param dest_addr Destination address.
+ * @param dest_provider_id Destination provider ID.
+ * @param migration_config Migration config.
+ *
+ * @return warabi_err_t handle.
+ */
+warabi_err_t warabi_provider_migrate(warabi_provider_t provider,
+                                     const char* dest_addr,
+                                     uint16_t dest_provider_id,
+                                     const char* migration_config);
+
 #ifdef __cplusplus
 }
 #endif
