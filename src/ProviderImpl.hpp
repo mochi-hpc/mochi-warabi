@@ -155,7 +155,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
                     m_remi_provider, "warabi", provider_id,
                     beforeMigrationCallback,
                     afterMigrationCallback,
-                    nullptr, this);
+                    [](void*){}, this);
             if(rret != REMI_SUCCESS) {
                 throw Exception(fmt::format(
                     "Failed to register migration class in REMI:"
@@ -213,6 +213,12 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
 
     ~ProviderImpl() {
         trace("Deregistering provider");
+#ifdef WARABI_HAS_REMI
+        if(m_remi_provider) {
+            remi_provider_deregister_provider_migration_class(
+                m_remi_provider, "warabi", get_provider_id());
+        }
+#endif
         if(m_target) m_target->destroy();
     }
 
