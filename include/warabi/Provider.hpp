@@ -97,6 +97,29 @@ class Provider {
      */
     operator bool() const;
 
+    /**
+     * @brief Migrate the internal target to a destination provider.
+     * The options argument should be a JSON string with the following
+     * optional keys:
+     *
+     * - "new_root" (string): path where to place the target in the
+     *   destination (defaults to the same path as in the source);
+     * - "transfer_size" (int): size of individual transfers used by
+     *   REMI (defaults to using a single transfer for the full target);
+     * - "merge_config" (object): the content of this field will be
+     *   merged with the target's configuration (defaults to an empty
+     *   object);
+     * - "remove_source" (bool): whether to remove the target in the
+     *   source provider (defaults to true);
+     *
+     * @param address
+     * @param provider_id
+     * @param options
+     */
+    void migrateTarget(const std::string& address,
+                       uint16_t provider_id,
+                       const std::string& options);
+
     private:
 
     std::shared_ptr<ProviderImpl> self;

@@ -47,6 +47,11 @@ Provider::~Provider() {
     }
 }
 
+void Provider::migrateTarget(const std::string &address, uint16_t provider_id, const std::string &options) {
+    if(!self) return;
+    self->migrateTarget(address, provider_id, options);
+}
+
 std::string Provider::getConfig() const {
     return self ? self->getConfig() : "null";
 }

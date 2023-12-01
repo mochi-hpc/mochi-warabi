@@ -84,6 +84,14 @@ class Result {
      * @brief Value if the request succeeded,
      * throws otherwise.
      */
+    T& valueOrThrow() & {
+        check();
+        return m_value;
+    }
+    /**
+     * @brief Value if the request succeeded,
+     * throws otherwise.
+     */
     const T& valueOrThrow() const & {
         check();
         return m_value;
