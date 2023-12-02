@@ -499,6 +499,11 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         trace("Received getREMIproviderId request");
         Result<uint16_t> result;
         tl::auto_respond<decltype(result)> response{req, result};
+#ifndef WARABI_HAS_REMI
+        result.error() = "Warabi wasn't compiled with REMI support";
+        result.success() = false;
+        return;
+#else
         if(!m_remi_provider) {
             result.success() = false;
             result.error() = "No target found in the provider";
@@ -512,6 +517,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
             return;
         }
         result.value() = id;
+#endif
         trace("Successfully executed getREMIproviderId request");
     }
 
