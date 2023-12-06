@@ -42,6 +42,18 @@ class WarabiFactory : public bedrock::AbstractServiceFactory {
         return provider->getConfig();
     }
 
+    void migrateProvider(
+        void* p, const char* dest_addr,
+        uint16_t dest_provider_id,
+        const char* options_json, bool remove_source) override {
+        auto provider = static_cast<warabi::Provider *>(p);
+        if(!remove_source) {
+            throw warabi::Exception{
+                "Migrating a provider without removing the source is not supported"};
+        }
+        provider->migrateTarget(dest_addr, dest_provider_id, options_json);
+    }
+
     void *initClient(const bedrock::FactoryArgs& args) override {
         return static_cast<void *>(new warabi::Client(args.mid));
     }
