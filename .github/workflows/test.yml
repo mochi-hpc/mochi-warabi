@@ -31,7 +31,6 @@ jobs:
         ref: develop
         color: true
         path: spack
-    - run: spack install --no-check-signature --reuse python
 
     - name: Find external packages
       run: |
@@ -44,10 +43,11 @@ jobs:
         spack -e tests external find --not-buildable autoconf
         spack -e tests external find --not-buildable automake
         spack -e tests external find --not-buildable pkg-config
+        spack -e tests external find --not-buildable gmake
 
     - name: Add mochi-spack-packages
       run: |
-        git clone https://github.com/mochi-hpc/mochi-spack-packages mochi-spack-packages
+        git clone https://github.com/mochi-hpc/mochi-spack-packages
         spack -e tests repo add mochi-spack-packages
 
     - name: Concretize spack environment
