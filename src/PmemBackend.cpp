@@ -3,17 +3,18 @@
  *
  * See COPYRIGHT in top-level directory.
  */
-#include <valijson/adapters/nlohmann_json_adapter.hpp>
-#include <valijson/schema.hpp>
-#include <valijson/schema_parser.hpp>
-#include <valijson/validator.hpp>
 #include "Defer.hpp"
 #include "PmemBackend.hpp"
+#include <nlohmann/json.hpp>
+#include <nlohmann/json-schema.hpp>
 #include <fmt/format.h>
 #include <filesystem>
 #include <iostream>
 
 namespace warabi {
+
+using nlohmann::json;
+using nlohmann::json_schema::json_validator;
 
 WARABI_REGISTER_BACKEND(pmdk, PmemTarget);
 
@@ -311,42 +312,30 @@ Result<std::unique_ptr<warabi::Backend>> PmemTarget::create(const thallium::engi
     return result;
 }
 
-static constexpr const char* configSchema = R"(
-{
-  "type": "object",
-  "properties": {
-    "path": {"type": "string"},
-    "create_if_missing_with_size": {"type": "integer", "minimum": 8388608},
-    "override_if_exists": {"type": "boolean"}
-  },
-  "required": ["path"]
-}
-)";
-
 Result<bool> PmemTarget::validate(const json& config) {
-    static json schemaDocument = json::parse(configSchema);
 
-    valijson::Schema schemaValidator;
-    valijson::SchemaParser schemaParser;
-    valijson::adapters::NlohmannJsonAdapter schemaAdapter(schemaDocument);
-    schemaParser.populateSchema(schemaAdapter, schemaValidator);
-
-    valijson::Validator validator;
-    valijson::adapters::NlohmannJsonAdapter jsonAdapter(config);
-
-    valijson::ValidationResults validationResults;
-    validator.validate(schemaValidator, jsonAdapter, &validationResults);
+    static const json schema = R"(
+    {
+        "type": "object",
+        "properties": {
+            "path": {"type": "string"},
+            "create_if_missing_with_size": {"type": "integer", "minimum": 8388608},
+            "override_if_exists": {"type": "boolean"}
+        },
+        "required": ["path"]
+    }
+    )"_json;
 
     Result<bool> result;
 
-    std::stringstream ss;
-    if(validationResults.numErrors() != 0) {
-        ss << "Error(s) while validating JSON config for warabi PmemTarget:\n";
-        for(auto& err : validationResults) {
-            ss << "\t" << err.description;
-        }
-        result.error() = ss.str();
+    json_validator validator;
+    validator.set_root_schema(schema);
+    try {
+        validator.validate(config);
+    } catch(const std::exception& ex) {
         result.success() = false;
+        result.error() = fmt::format(
+            "Error(s) while validating JSON config for warabi PmemTarget: {}", ex.what());
         return result;
     }
 

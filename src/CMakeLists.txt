@@ -35,7 +35,8 @@ endif ()
 add_library (warabi-server ${server-src-files})
 target_link_libraries (warabi-server
     PUBLIC thallium nlohmann_json::nlohmann_json ${OPTIONAL_REMI}
-    PRIVATE ${OPTIONAL_REMI} spdlog::spdlog fmt::fmt PkgConfig::libpmemobj
+    PRIVATE ${OPTIONAL_REMI} nlohmann_json_schema_validator::validator
+            spdlog::spdlog fmt::fmt PkgConfig::libpmemobj
             PkgConfig::abt-io stdc++fs coverage_config)
 target_include_directories (warabi-server PUBLIC $<INSTALL_INTERFACE:include>)
 target_include_directories (warabi-server BEFORE PUBLIC

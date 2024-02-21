@@ -4,6 +4,7 @@ spack:
   - pkgconfig
   - mochi-thallium
   - nlohmann-json
+  - nlohmann-json-schema-validator
   - pmdk
   - spdlog
   - fmt
@@ -11,7 +12,6 @@ spack:
   - mochi-bedrock +abtio
   - mochi-abt-io
   - mochi-remi
-  - valijson
   concretizer:
     unify: true
     reuse: true

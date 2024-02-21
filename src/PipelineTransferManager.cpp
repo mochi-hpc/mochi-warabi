@@ -4,29 +4,16 @@
  * See COPYRIGHT in top-level directory.
  */
 #include "warabi/TransferManager.hpp"
-
-#include <valijson/adapters/nlohmann_json_adapter.hpp>
-#include <valijson/schema.hpp>
-#include <valijson/schema_parser.hpp>
-#include <valijson/validator.hpp>
-
 #include <margo-bulk-pool.h>
 #include <thallium.hpp>
+#include <fmt/format.h>
+#include <nlohmann/json.hpp>
+#include <nlohmann/json-schema.hpp>
 
 namespace warabi {
 
-static constexpr const char* configSchema = R"(
-{
-  "type": "object",
-  "properties": {
-    "num_pools": {"type": "integer", "minimum": 1},
-    "num_buffers_per_pool": {"type": "integer", "minimum": 1},
-    "first_buffer_size": {"type": "integer", "minimum": 1},
-    "buffer_size_multiple": {"type": "integer", "exclusiveMinimum": 1}
-  },
-  "required": ["num_pools", "num_buffers_per_pool", "first_buffer_size", "buffer_size_multiple"]
-}
-)";
+using nlohmann::json;
+using nlohmann::json_schema::json_validator;
 
 namespace tl = thallium;
 
@@ -244,28 +231,32 @@ class PipelineTransferManager : public TransferManager {
     }
 
     static Result<bool> validate(const json& config) {
-        static json schemaDocument = json::parse(configSchema);
+        static const json schema = R"(
+        {
+            "type": "object",
+            "properties": {
+                "num_pools": {"type": "integer", "minimum": 1},
+                "num_buffers_per_pool": {"type": "integer", "minimum": 1},
+                "first_buffer_size": {"type": "integer", "minimum": 1},
+                "buffer_size_multiple": {"type": "integer", "exclusiveMinimum": 1}
+            },
+            "required": ["num_pools", "num_buffers_per_pool", "first_buffer_size", "buffer_size_multiple"]
+        }
+        )"_json;
+
         Result<bool> result;
 
-        valijson::Schema schemaValidator;
-        valijson::SchemaParser schemaParser;
-        valijson::adapters::NlohmannJsonAdapter schemaAdapter(schemaDocument);
-        schemaParser.populateSchema(schemaAdapter, schemaValidator);
-
-        valijson::Validator validator;
-        valijson::adapters::NlohmannJsonAdapter jsonAdapter(config);
-
-        valijson::ValidationResults validationResults;
-        validator.validate(schemaValidator, jsonAdapter, &validationResults);
-
-        if(validationResults.numErrors() != 0) {
-            std::stringstream ss;
-            ss << "Error(s) while validating JSON config for warabi provider:\n";
-            for(auto& err : validationResults) {
-                ss << err.description << "\n";
-            }
-            result.error() = ss.str();
+        json_validator validator;
+        validator.set_root_schema(schema);
+        try {
+            validator.validate(config);
+        } catch(const std::exception& ex) {
+            result.success() = false;
+            result.error() = fmt::format(
+                "Error(s) while validating JSON config for warabi PipelineTransferManager: {}", ex.what());
+            return result;
         }
+
         return result;
     }
 };

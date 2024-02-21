@@ -7,10 +7,6 @@
 #define __WARABI_PROVIDER_IMPL_H
 
 #include "config.h"
-#include <valijson/adapters/nlohmann_json_adapter.hpp>
-#include <valijson/schema.hpp>
-#include <valijson/schema_parser.hpp>
-#include <valijson/validator.hpp>
 
 #include "warabi/Provider.hpp"
 #include "warabi/Backend.hpp"
@@ -25,6 +21,7 @@
 #include <thallium/serialization/stl/vector.hpp>
 #include <thallium/serialization/stl/array.hpp>
 
+#include <nlohmann/json-schema.hpp>
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
@@ -39,28 +36,8 @@ namespace warabi {
 
 using namespace std::string_literals;
 namespace tl = thallium;
-
-static constexpr const char* configSchema = R"(
-{
-  "type": "object",
-  "properties": {
-    "target": {
-      "type": "object",
-      "properties": {
-        "type": {"type": "string"},
-        "config": {"type": "object"}
-      },
-      "required": ["type"]
-    },
-    "transfer_manager": {
-      "properties": {
-        "type": {"type": "string"},
-        "config": {"type": "object"}
-      }
-    }
-  }
-}
-)";
+using nlohmann::json;
+using nlohmann::json_schema::json_validator;
 
 class ProviderImpl : public tl::provider<ProviderImpl> {
 
@@ -169,24 +146,35 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
                   " Warabi wasn't built with REMI support");
         }
 #endif
-        static json schemaDocument = json::parse(configSchema);
 
-        valijson::Schema schemaValidator;
-        valijson::SchemaParser schemaParser;
-        valijson::adapters::NlohmannJsonAdapter schemaAdapter(schemaDocument);
-        schemaParser.populateSchema(schemaAdapter, schemaValidator);
-
-        valijson::Validator validator;
-        valijson::adapters::NlohmannJsonAdapter jsonAdapter(json_config);
-
-        valijson::ValidationResults validationResults;
-        validator.validate(schemaValidator, jsonAdapter, &validationResults);
-
-        if(validationResults.numErrors() != 0) {
-            error("Error(s) while validating JSON config for warabi provider:");
-            for(auto& err : validationResults) {
-                error("\t{}", err.description);
+        static const json schema = R"(
+        {
+            "type": "object",
+            "properties": {
+                "target": {
+                    "type": "object",
+                    "properties": {
+                        "type": {"type": "string"},
+                        "config": {"type": "object"}
+                    },
+                    "required": ["type"]
+                },
+                "transfer_manager": {
+                    "properties": {
+                        "type": {"type": "string"},
+                        "config": {"type": "object"}
+                    }
+                }
             }
+        }
+        )"_json;
+
+        json_validator validator;
+        validator.set_root_schema(schema);
+        try {
+            validator.validate(json_config);
+        } catch(const std::exception& ex) {
+            error("Error(s) while validating JSON config for warabi provider: {}", ex.what());
             throw Exception("Invalid JSON configuration (see error logs for information)");
         }
 
@@ -534,15 +522,15 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         if(!m_target) throw Exception{"No target to migration"};
 
         // check that the options is valid JSON
-        json optionsJson;
+        json json_options;
         try {
-            optionsJson = options.empty() ? json::object() : json::parse(options);
+            json_options = options.empty() ? json::object() : json::parse(options);
         } catch(const std::exception& ex) {
             throw Exception{ex.what()};
         }
 
         // check that the options comply with the schema
-        static const auto migrationJsonSchemaStr = R"({
+        static const json schema = R"({
             "type": "object",
             "properties": {
                 "new_root": {"type": "string"},
@@ -550,26 +538,15 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
                 "merge_config": {"type": "object"},
                 "remove_source": {"type": "boolean"}
             }
-        })";
-        static const json migrationJsonSchema = json::parse(migrationJsonSchemaStr);
+        })"_json;
 
-        valijson::Schema schemaValidator;
-        valijson::SchemaParser schemaParser;
-        valijson::adapters::NlohmannJsonAdapter schemaAdapter(migrationJsonSchema);
-        schemaParser.populateSchema(schemaAdapter, schemaValidator);
-
-        valijson::Validator validator;
-        valijson::adapters::NlohmannJsonAdapter jsonAdapter(optionsJson);
-
-        valijson::ValidationResults validationResults;
-        validator.validate(schemaValidator, jsonAdapter, &validationResults);
-
-        if(validationResults.numErrors() != 0) {
-            error("Error(s) while validating JSON config for warabi provider:");
-            for(auto& err : validationResults) {
-                error("\t{}", err.description);
-            }
-            throw Exception("Invalid JSON configuration (see error logs for information)");
+        json_validator validator;
+        validator.set_root_schema(schema);
+        try {
+            validator.validate(json_options);
+        } catch(const std::exception& ex) {
+            error("Error(s) while validating JSON migration options: {}", ex.what());
+            throw Exception("Invalid JSON migration options: {}", ex.what());
         }
 
         // lookup destination address
@@ -611,7 +588,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         DEFER(remi_provider_handle_release(remi_ph));
 
         // get a MigrationHandle
-        bool remove_source = optionsJson.value("remove_source", true);
+        bool remove_source = json_options.value("remove_source", true);
         auto startMigration = m_target->startMigration(remove_source);
         migrationHandle = std::move(startMigration.valueOrThrow());
 
@@ -639,7 +616,7 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
 
         // get the config to send to by merging the target config with the merge config
         auto target_config = json::parse(m_target->getConfig());
-        target_config.update(optionsJson.value("merge_config", json::object()), true);
+        target_config.update(json_options.value("merge_config", json::object()), true);
 
         // register REMI metadata
         rret = remi_fileset_register_metadata(fileset, "config", target_config.dump().c_str());
@@ -648,14 +625,14 @@ class ProviderImpl : public tl::provider<ProviderImpl> {
         HANDLE_REMI_ERROR(remi_fileset_register_metadata, rret, "Failed to register metadata in REMI fileset");
 
         // set block transfer size
-        if(optionsJson.contains("transfer_size")) {
-            rret = remi_fileset_set_xfer_size(fileset, optionsJson["transfer_size"].get<size_t>());
+        if(json_options.contains("transfer_size")) {
+            rret = remi_fileset_set_xfer_size(fileset, json_options["transfer_size"].get<size_t>());
             HANDLE_REMI_ERROR(remi_fileset_set_xfer_size, rret, "Failed to set transfer size for REMI fileset");
         }
 
         // issue migration RPC
-        auto newRoot     = optionsJson.value("new_root", migrationHandle->getRoot());
-        auto keep_source = optionsJson.value("keep_source", false) ? REMI_REMOVE_SOURCE : REMI_KEEP_SOURCE;
+        auto newRoot     = json_options.value("new_root", migrationHandle->getRoot());
+        auto keep_source = json_options.value("keep_source", false) ? REMI_REMOVE_SOURCE : REMI_KEEP_SOURCE;
         int remi_status = 0;
         rret = remi_fileset_migrate(remi_ph, fileset, newRoot.c_str(),
                                     keep_source, REMI_USE_MMAP, &remi_status);

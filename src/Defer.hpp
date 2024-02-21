@@ -6,6 +6,8 @@
 #ifndef __WARABI_DEFER_HPP
 #define __WARABI_DEFER_HPP
 
+#include <utility>
+
 namespace warabi {
 
 template<typename F>

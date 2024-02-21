@@ -49,16 +49,15 @@ endif ()
 find_package (PkgConfig REQUIRED)
 # search fo thallium
 find_package (thallium REQUIRED)
-# search for nlohmann/json
+# search for nlohmann/json and the validator library
 find_package (nlohmann_json REQUIRED)
+find_package (nlohmann_json_schema_validator REQUIRED)
 # search for TCLAP
 find_package (TCLAP REQUIRED)
 # search for spdlog
 find_package (spdlog REQUIRED)
 # search for fmt
 find_package (fmt REQUIRED)
-# search for valijson
-find_package (valijson REQUIRED)
 # search for libpmemobj
 pkg_check_modules (libpmemobj REQUIRED IMPORTED_TARGET libpmemobj)
 # search for abt-io

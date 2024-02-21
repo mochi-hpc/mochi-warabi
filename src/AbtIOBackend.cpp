@@ -11,17 +11,18 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <valijson/adapters/nlohmann_json_adapter.hpp>
-#include <valijson/schema.hpp>
-#include <valijson/schema_parser.hpp>
-#include <valijson/validator.hpp>
 #include "AbtIOBackend.hpp"
 #include "Defer.hpp"
+#include <nlohmann/json.hpp>
+#include <nlohmann/json-schema.hpp>
 #include <fmt/format.h>
 #include <filesystem>
 #include <iostream>
 
 namespace warabi {
+
+using nlohmann::json;
+using nlohmann::json_schema::json_validator;
 
 WARABI_REGISTER_BACKEND(abtio, AbtIOTarget);
 
@@ -483,46 +484,33 @@ retry_without_odirect:
     return result;
 }
 
-static constexpr const char* configSchema = R"(
-{
-  "type": "object",
-  "properties": {
-    "path": {"type": "string"},
-    "create_if_missing": {"type": "boolean"},
-    "override_if_exists": {"type": "boolean"},
-    "alignment": {"type": "integer", "minimum": 8, "multipleOf": 8},
-    "sync": {"type": "boolean"},
-    "directio": {"type": "boolean"},
-    "abt_io": {"type": "object"}
-  },
-  "required": ["path"]
-}
-)";
-
 Result<bool> AbtIOTarget::validate(const json& config) {
-    static json schemaDocument = json::parse(configSchema);
-
-    valijson::Schema schemaValidator;
-    valijson::SchemaParser schemaParser;
-    valijson::adapters::NlohmannJsonAdapter schemaAdapter(schemaDocument);
-    schemaParser.populateSchema(schemaAdapter, schemaValidator);
-
-    valijson::Validator validator;
-    valijson::adapters::NlohmannJsonAdapter jsonAdapter(config);
-
-    valijson::ValidationResults validationResults;
-    validator.validate(schemaValidator, jsonAdapter, &validationResults);
+    static const json schema = R"(
+    {
+        "type": "object",
+        "properties": {
+            "path": {"type": "string"},
+            "create_if_missing": {"type": "boolean"},
+            "override_if_exists": {"type": "boolean"},
+            "alignment": {"type": "integer", "minimum": 8, "multipleOf": 8},
+            "sync": {"type": "boolean"},
+            "directio": {"type": "boolean"},
+            "abt_io": {"type": "object"}
+        },
+        "required": ["path"]
+    }
+    )"_json;
 
     Result<bool> result;
 
-    std::stringstream ss;
-    if(validationResults.numErrors() != 0) {
-        ss << "Error(s) while validating JSON config for warabi AbtIOTarget:\n";
-        for(auto& err : validationResults) {
-            ss << "\t" << err.description;
-        }
-        result.error() = ss.str();
+    json_validator validator;
+    validator.set_root_schema(schema);
+    try {
+        validator.validate(config);
+    } catch(const std::exception& ex) {
         result.success() = false;
+        result.error() = fmt::format(
+            "Error(s) while validating JSON config for warabi AbtIOTarget: {}", ex.what());
         return result;
     }
 
