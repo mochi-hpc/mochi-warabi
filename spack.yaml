@@ -29,4 +29,4 @@ spack:
     mochi-bedrock:
       require: "@0.8.0:"
     nlohmann-json-schema-validator:
-      require: "@2.3.0:"
+      require: "@main" # change to "@2.3.0:" when possible
