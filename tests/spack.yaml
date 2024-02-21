@@ -29,6 +29,8 @@ spack:
       require: "@0.4.0:"
     mochi-bedrock:
       require: "@0.8.0:"
+    nlohmann-json-schema-validator:
+      require: "@2.3.0:"
   mirrors:
     mochi-buildcache:
       url: oci://ghcr.io/mochi-hpc/mochi-spack-buildcache
