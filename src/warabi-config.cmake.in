@@ -17,3 +17,9 @@ pkg_check_modules (uuid REQUIRED uuid)
 find_package (nlohmann_json REQUIRED)
 
 include ("${CMAKE_CURRENT_LIST_DIR}/warabi-targets.cmake")
+
+add_library (warabi::client ALIAS warabi-client)
+add_library (warabi::server ALIAS warabi-server)
+add_library (warabi::c-client ALIAS warabi-c-client)
+add_library (warabi::c-server ALIAS warabi-c-server)
+add_library (warabi::c-error ALIAS warabi-c-error)

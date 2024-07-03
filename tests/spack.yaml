@@ -10,7 +10,7 @@ spack:
   - pmdk
   - fmt
   - tclap
-  - mochi-bedrock+abtio+ssg ^mpich
+  - mochi-bedrock-module-api
   - mercury~boostsys~checksum ^libfabric fabrics=tcp,rxm
   - mochi-remi
   concretizer:

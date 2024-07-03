@@ -5,6 +5,13 @@ project (warabi C CXX)
 set (CMAKE_CXX_STANDARD 17)
 enable_testing ()
 
+# library version set here (e.g. for shared libs).
+set (WARABI_VERSION_MAJOR 0)
+set (WARABI_VERSION_MINOR 4)
+set (WARABI_VERSION_PATCH 0)
+set (WARABI_VERSION
+     "${WARABI_VERSION_MAJOR}.${WARABI_VERSION_MINOR}.${WARABI_VERSION_PATCH}")
+
 add_definitions (-Wextra -Wall -Wpedantic)
 
 add_library (coverage_config INTERFACE)
@@ -64,7 +71,7 @@ pkg_check_modules (libpmemobj REQUIRED IMPORTED_TARGET libpmemobj)
 pkg_check_modules (abt-io REQUIRED IMPORTED_TARGET abt-io)
 # search of bedrock if needed
 if (${ENABLE_BEDROCK})
-    find_package (bedrock REQUIRED)
+    find_package (bedrock-module-api REQUIRED)
 endif ()
 if (${ENABLE_REMI})
     find_package (remi REQUIRED)
@@ -72,13 +79,6 @@ if (${ENABLE_REMI})
 else ()
     set (WARABI_HAS_REMI OFF)
 endif ()
-
-# library version set here (e.g. for shared libs).
-set (WARABI_VERSION_MAJOR 0)
-set (WARABI_VERSION_MINOR 3)
-set (WARABI_VERSION_PATCH 0)
-set (WARABI_VERSION
-     "${WARABI_VERSION_MAJOR}.${WARABI_VERSION_MINOR}.${WARABI_VERSION_PATCH}")
 
 add_subdirectory (src)
 if (${ENABLE_TESTS})
@@ -91,6 +91,13 @@ if (${ENABLE_TESTS})
             GIT_REPOSITORY https://github.com/catchorg/Catch2.git
             GIT_TAG        v3.0.1
         )
+# library version set here (e.g. for shared libs).
+set (WARABI_VERSION_MAJOR 0)
+set (WARABI_VERSION_MINOR 3)
+set (WARABI_VERSION_PATCH 0)
+set (WARABI_VERSION
+     "${WARABI_VERSION_MAJOR}.${WARABI_VERSION_MINOR}.${WARABI_VERSION_PATCH}")
+
         FetchContent_MakeAvailable (Catch2)
     endif ()
     add_subdirectory (tests)

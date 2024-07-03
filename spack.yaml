@@ -9,7 +9,7 @@ spack:
   - spdlog
   - fmt
   - tclap
-  - mochi-bedrock +abtio
+  - mochi-bedrock-module-api
   - mochi-abt-io
   - mochi-remi
   concretizer:

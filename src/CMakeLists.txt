@@ -33,6 +33,7 @@ else ()
     set (OPTIONAL_REMI)
 endif ()
 add_library (warabi-server ${server-src-files})
+add_library (warabi::server ALIAS warabi-server)
 target_link_libraries (warabi-server
     PUBLIC thallium nlohmann_json::nlohmann_json ${OPTIONAL_REMI}
     PRIVATE ${OPTIONAL_REMI} nlohmann_json_schema_validator::validator
@@ -49,6 +50,7 @@ set_target_properties (warabi-server
 
 # client library
 add_library (warabi-client ${client-src-files})
+add_library (warabi::client ALIAS warabi-client)
 target_link_libraries (warabi-client
     PUBLIC thallium nlohmann_json::nlohmann_json
     PRIVATE spdlog::spdlog fmt::fmt coverage_config)
@@ -63,6 +65,7 @@ set_target_properties (warabi-client
 
 # C error library
 add_library (warabi-c-error ${CMAKE_CURRENT_SOURCE_DIR}/c/error.cpp)
+add_library (warabi::c-error ALIAS warabi-c-error)
 target_link_libraries (warabi-c-error PRIVATE warabi-client coverage_config)
 target_include_directories (warabi-c-error PUBLIC $<INSTALL_INTERFACE:include>)
 target_include_directories (warabi-c-error BEFORE PUBLIC
@@ -75,6 +78,7 @@ set_target_properties (warabi-c-error
 
 # C client library
 add_library (warabi-c-client ${CMAKE_CURRENT_SOURCE_DIR}/c/client.cpp)
+add_library (warabi::c-client ALIAS warabi-c-client)
 target_link_libraries (warabi-c-client PUBLIC warabi-c-error PRIVATE warabi-client coverage_config)
 target_include_directories (warabi-c-client PUBLIC $<INSTALL_INTERFACE:include>)
 target_include_directories (warabi-c-client BEFORE PUBLIC
@@ -87,6 +91,7 @@ set_target_properties (warabi-c-client
 
 # C server library
 add_library (warabi-c-server ${CMAKE_CURRENT_SOURCE_DIR}/c/server.cpp)
+add_library (warabi::c-server ALIAS warabi-c-server)
 target_link_libraries (warabi-c-server PUBLIC warabi-c-error PRIVATE warabi-server coverage_config)
 target_include_directories (warabi-c-server PUBLIC $<INSTALL_INTERFACE:include>)
 target_include_directories (warabi-c-server BEFORE PUBLIC
@@ -100,7 +105,7 @@ set_target_properties (warabi-c-server
 if (${ENABLE_BEDROCK})
 # bedrock module library
 add_library (warabi-bedrock-module ${module-src-files})
-target_link_libraries (warabi-bedrock-module warabi-server warabi-client bedrock-server coverage_config)
+target_link_libraries (warabi-bedrock-module warabi-server warabi-client bedrock::module-api coverage_config)
 target_include_directories (warabi-bedrock-module PUBLIC $<INSTALL_INTERFACE:include>)
 target_include_directories (warabi-bedrock-module BEFORE PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>)
