@@ -12,6 +12,8 @@ spack:
   - mochi-bedrock-module-api
   - mochi-abt-io
   - mochi-remi
+  - py-mochi-margo
+  - py-configspace
   concretizer:
     unify: true
     reuse: true
