@@ -21,6 +21,7 @@ option (ENABLE_EXAMPLES "Build examples" OFF)
 option (ENABLE_BEDROCK  "Build bedrock module" OFF)
 option (ENABLE_COVERAGE "Build with coverage" OFF)
 option (ENABLE_REMI     "Build with REMI support" OFF)
+option (ENABLE_PYTHON   "Build with Python support" OFF)
 
 # add our cmake module directory to the path
 set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
@@ -80,6 +81,12 @@ else ()
     set (WARABI_HAS_REMI OFF)
 endif ()
 
+if (ENABLE_PYTHON)
+#    find_package (Python3 COMPONENTS Interpreter Development REQUIRED)
+#    find_package (pybind11 REQUIRED)
+    add_subdirectory (python)
+endif ()
+
 add_subdirectory (src)
 if (${ENABLE_TESTS})
     enable_testing ()
@@ -91,13 +98,6 @@ if (${ENABLE_TESTS})
             GIT_REPOSITORY https://github.com/catchorg/Catch2.git
             GIT_TAG        v3.0.1
         )
-# library version set here (e.g. for shared libs).
-set (WARABI_VERSION_MAJOR 0)
-set (WARABI_VERSION_MINOR 3)
-set (WARABI_VERSION_PATCH 0)
-set (WARABI_VERSION
-     "${WARABI_VERSION_MAJOR}.${WARABI_VERSION_MINOR}.${WARABI_VERSION_PATCH}")
-
         FetchContent_MakeAvailable (Catch2)
     endif ()
     add_subdirectory (tests)
