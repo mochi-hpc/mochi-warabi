@@ -32,7 +32,7 @@ static inline std::string makeConfigForTransferManager(const std::string& type) 
             "num_pools": 2,
             "num_buffers_per_pool": 8,
             "first_buffer_size": 1024,
-            "buffer_size_multiple": 2
+            "buffer_size_multiplier": 2
         })";
     }
     return "{}";

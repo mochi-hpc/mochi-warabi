@@ -31,7 +31,7 @@ TEST_CASE("Provider tests", "[provider]") {
                         "num_pools":4,
                         "num_buffers_per_pool": 4,
                         "first_buffer_size": 128,
-                        "buffer_size_multiple": 2
+                        "buffer_size_multiplier": 2
                     }
                 }
             }

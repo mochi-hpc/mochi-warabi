@@ -209,7 +209,7 @@ class PipelineTransferManager : public TransferManager {
         auto num_pools            = config["num_pools"].get<size_t>();
         auto num_buffers_per_pool = config["num_buffers_per_pool"].get<size_t>();
         auto first_buffer_size    = config["first_buffer_size"].get<size_t>();
-        auto buffer_size_multiple = config["buffer_size_multiple"].get<size_t>();
+        auto buffer_size_multiplier = config["buffer_size_multiplier"].get<size_t>();
 
         margo_bulk_poolset_t poolset;
 
@@ -217,7 +217,7 @@ class PipelineTransferManager : public TransferManager {
             engine.get_margo_instance(),
             num_pools, num_buffers_per_pool,
             first_buffer_size,
-            buffer_size_multiple, HG_BULK_READWRITE,
+            buffer_size_multiplier, HG_BULK_READWRITE,
             &poolset);
         if(hret != HG_SUCCESS) {
             result.success() = false;
@@ -238,9 +238,9 @@ class PipelineTransferManager : public TransferManager {
                 "num_pools": {"type": "integer", "minimum": 1},
                 "num_buffers_per_pool": {"type": "integer", "minimum": 1},
                 "first_buffer_size": {"type": "integer", "minimum": 1},
-                "buffer_size_multiple": {"type": "integer", "exclusiveMinimum": 1}
+                "buffer_size_multiplier": {"type": "integer", "exclusiveMinimum": 1}
             },
-            "required": ["num_pools", "num_buffers_per_pool", "first_buffer_size", "buffer_size_multiple"]
+            "required": ["num_pools", "num_buffers_per_pool", "first_buffer_size", "buffer_size_multiplier"]
         }
         )"_json;
 
