@@ -45,17 +45,20 @@ class WarabiProviderSpec(ProviderSpec):
               pipeline_buffer_size_multiplier: int|tuple[int,int] = 2,
               need_persistence: bool = True,
               **kwargs):
-        from ConfigSpace import ConfigurationSpace, Constant
-        from mochi.bedrock.spec import _CategoricalOrConst, _IntegerOrConst
+        from mochi.bedrock.config_space import (
+                ConfigurationSpace,
+                CategoricalOrConst,
+                IntegerOrConst,
+                Constant)
         storage_backends = [b for b in WarabiProviderSpec._backends if \
             ((not need_persistence) or b.is_persistent) and b.name in types]
         storage_types = [b.name for b in storage_backends]
         target_cs = ConfigurationSpace()
-        target_cs.add(_CategoricalOrConst('type', storage_types, default=storage_types[0]))
+        target_cs.add(CategoricalOrConst('type', storage_types, default=storage_types[0]))
 
         if 'abtio' in storage_types:
             abtio_cs = ConfigurationSpace()
-            abtio_cs.add(_CategoricalOrConst('path', paths, default=paths[0]))
+            abtio_cs.add(CategoricalOrConst('path', paths, default=paths[0]))
             target_cs.add_configuration_space(
                 prefix='abtio', delimiter='.',
                 configuration_space=abtio_cs,
@@ -63,7 +66,7 @@ class WarabiProviderSpec(ProviderSpec):
 
         if 'pmdk' in storage_types:
             pmdk_cs = ConfigurationSpace()
-            pmdk_cs.add(_CategoricalOrConst('path', paths, default=paths[0]))
+            pmdk_cs.add(CategoricalOrConst('path', paths, default=paths[0]))
             if initial_size is None:
                 raise ValueError('initial_size but be provided if pmdk is a possible backend')
             pmdk_cs.add(Constant('initial_size', initial_size))
@@ -73,14 +76,14 @@ class WarabiProviderSpec(ProviderSpec):
                 parent_hyperparameter={'parent': target_cs['type'], 'value': 'pmdk'})
 
         tm_cs = ConfigurationSpace()
-        tm_cs.add(_CategoricalOrConst('type', transfer_managers, default=transfer_managers[0]))
+        tm_cs.add(CategoricalOrConst('type', transfer_managers, default=transfer_managers[0]))
 
         if 'pipeline' in transfer_managers:
             pipeline_cs = ConfigurationSpace()
-            pipeline_cs.add(_IntegerOrConst('num_pools', pipeline_num_pools))
-            pipeline_cs.add(_IntegerOrConst('num_buffers_per_pool', pipeline_num_buffers_per_pool))
-            pipeline_cs.add(_IntegerOrConst('first_buffer_size', pipeline_first_buffer_size))
-            pipeline_cs.add(_IntegerOrConst('buffer_size_multiplier', pipeline_buffer_size_multiplier))
+            pipeline_cs.add(IntegerOrConst('num_pools', pipeline_num_pools))
+            pipeline_cs.add(IntegerOrConst('num_buffers_per_pool', pipeline_num_buffers_per_pool))
+            pipeline_cs.add(IntegerOrConst('first_buffer_size', pipeline_first_buffer_size))
+            pipeline_cs.add(IntegerOrConst('buffer_size_multiplier', pipeline_buffer_size_multiplier))
             tm_cs.add_configuration_space(
                 prefix='pipeline', delimiter='.',
                 configuration_space=pipeline_cs,
