@@ -27,6 +27,10 @@ AsyncRequest::~AsyncRequest() {
     }
 }
 
+AsyncRequest::operator bool() const {
+    return static_cast<bool>(self);
+}
+
 AsyncRequest& AsyncRequest::operator=(const AsyncRequest& other) {
     if(this == &other || self == other.self) return *this;
     if(self && self.unique()) {
