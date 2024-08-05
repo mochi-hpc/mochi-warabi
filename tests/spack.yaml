@@ -13,7 +13,7 @@ spack:
   - mochi-bedrock-module-api
   - mercury~boostsys~checksum ^libfabric fabrics=tcp,rxm
   - mochi-remi
-  - py-config-space
+  - py-configspace
   concretizer:
     unify: true
     reuse: true
