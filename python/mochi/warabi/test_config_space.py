@@ -3,32 +3,48 @@
 
 
 import unittest
-from .spec import WarabiProviderSpec
-from mochi.bedrock.spec import PoolSpec
-from mochi.bedrock.config_space import ConfigurationSpace
+from .config_space import WarabiSpaceBuilder
+from mochi.bedrock.spec import ProcSpec
+
 
 class TestConfigSpace(unittest.TestCase):
 
-    def test_warabi_config_space(self):
-
-        pools = [PoolSpec(name='p1'), PoolSpec(name='p2')]
-
-        wcs = WarabiProviderSpec.space(
-            max_num_pools=2,
-            paths=["/tmp", "/scratch"],
-            need_persistence=False,
-            tags=['my_tag'])
-        print(wcs)
-        cs = ConfigurationSpace()
-        cs.add_configuration_space(prefix='abc', delimiter='.',
-                                   configuration_space=wcs)
-        cs = cs.freeze()
-        config = cs.sample_configuration()
+    def test_warabi_provider_space(self):
+        warabi_space_builder = WarabiSpaceBuilder()
+        provider_space_factories = [
+            {
+                "family": "storage",
+                "builder": warabi_space_builder,
+                "count": (1,3)
+            }
+        ]
+        space = ProcSpec.space(num_pools=(1,3), num_xstreams=(2,5),
+                               provider_space_factories=provider_space_factories).freeze()
+        print(space)
+        config = space.sample_configuration()
         print(config)
-        spec = WarabiProviderSpec.from_config(
-            name='my_provider', provider_id=42, pools=pools,
-            config=config, prefix='abc.')
+        spec = ProcSpec.from_config(address='na+sm', config=config)
         print(spec.to_json(indent=4))
+
+    def test_warabi_provider_space_with_paths(self):
+        """
+        warabi_space_builder = WarabiSpaceBuilder(paths=["/aaa", "/bbb"])
+        provider_space_factories = [
+            {
+                "family": "storage",
+                "builder": warabi_space_builder,
+                "count": (1,3)
+            }
+        ]
+        space = ProcSpec.space(num_pools=(1,3), num_xstreams=(2,5),
+                               provider_space_factories=provider_space_factories).freeze()
+        print(space)
+        config = space.sample_configuration()
+        print(config)
+        spec = ProcSpec.from_config(address='na+sm', config=config)
+        print(spec.to_json(indent=4))
+        """
+
 
 
 if __name__ == "__main__":
