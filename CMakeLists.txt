@@ -7,7 +7,7 @@ enable_testing ()
 
 # library version set here (e.g. for shared libs).
 set (WARABI_VERSION_MAJOR 0)
-set (WARABI_VERSION_MINOR 5)
+set (WARABI_VERSION_MINOR 6)
 set (WARABI_VERSION_PATCH 0)
 set (WARABI_VERSION
      "${WARABI_VERSION_MAJOR}.${WARABI_VERSION_MINOR}.${WARABI_VERSION_PATCH}")
