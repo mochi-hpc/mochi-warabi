@@ -36,7 +36,7 @@ Provider::Provider(
 }
 
 Provider::Provider(Provider&& other) {
-    other.self->get_engine().pop_finalize_callback(this);
+    other.self->get_engine().pop_finalize_callback(&other);
     self = std::move(other.self);
     self->get_engine().push_finalize_callback(this, [p=this]() { p->self.reset(); });
 }
