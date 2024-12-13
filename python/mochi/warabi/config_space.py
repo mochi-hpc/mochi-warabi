@@ -21,14 +21,6 @@ from mochi.bedrock.spec import (
         CS,
         Config,
         ProviderSpec)
-from mochi.bedrock.config_space import (
-        CategoricalChoice,
-        ConfigurationSpace,
-        InCondition,
-        IntegerOrConst,
-        EqualsCondition,
-        Categorical,
-        CategoricalOrConst)
 
 
 @dataclass(frozen=True)
@@ -73,6 +65,12 @@ class WarabiSpaceBuilder:
         self.pipeline_buffer_size_multiplier = pipeline_buffer_size_multiplier
 
     def set_provider_hyperparameters(self, configuration_space: CS) -> None:
+        from mochi.bedrock.config_space import (
+            CategoricalChoice,
+            InCondition,
+            IntegerOrConst,
+            EqualsCondition,
+            CategoricalOrConst)
         # add a pool dependency
         num_pools = configuration_space['margo.argobots.num_pools']
         configuration_space.add(CategoricalChoice('pool', num_options=num_pools))
