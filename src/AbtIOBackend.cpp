@@ -97,45 +97,32 @@ struct AbtIORegion : public WritableRegion, public ReadableRegion {
             const void* data, bool persist) override {
         (void)persist;
         Result<bool> result;
-        std::vector<abt_io_op*> ops(regionOffsetSizes.size());
-        std::vector<ssize_t> rets(regionOffsetSizes.size());
+        std::vector<abt_io_op*> ops;
+        ops.reserve(regionOffsetSizes.size());
 
         const char* ptr = static_cast<const char*>(data);
         size_t offset = 0;
-        int i = 0;
         for(const auto& seg : regionOffsetSizes) {
-            abt_io_op* op = abt_io_pwrite_nb(
-                m_owner->m_abtio,
-                m_owner->m_fd,
-                ptr + offset,
-                seg.second,
-                m_region_offset + seg.first,
-                rets.data() + i);
-            ops[i] = op;
-            offset += seg.second;
-            i += 1;
-        }
-        int ret = 0;
-        for(auto& op : ops) {
-            ret = abt_io_op_wait(op);
-            abt_io_op_free(op);
-            if(ret != 0) {
-                result.success() = false;
-                result.error() = "Write failed (abt_io_op_wait returned -1)";
+            ssize_t remaining = seg.second;
+            while(remaining) {
+                auto s = abt_io_pwrite(
+                    m_owner->m_abtio,
+                    m_owner->m_fd,
+                    ptr + offset,
+                    seg.second,
+                    m_region_offset + seg.first);
+                if(s <= 0) {
+                    result.success() = false;
+                    result.error() = fmt::format(
+                        "abt_io_pwrite failed in write: {}", strerror(-s));
+                    return result;
+                }
+                offset += s;
+                remaining -= s;
             }
         }
-        if(!result.success())
-            return result;
-        for(auto& r : rets) {
-            if(r < 0) {
-                result.success() = false;
-                result.error() = fmt::format("Read failed: {}", strerror(-r));
-            }
-        }
-        if(!result.success())
-            return result;
         if(persist) {
-            ret = abt_io_fdatasync(m_owner->m_abtio, m_owner->m_fd);
+            auto ret = abt_io_fdatasync(m_owner->m_abtio, m_owner->m_fd);
             if(ret != 0) {
                 result.success() = false;
                 result.error() = "Persist failed (abt_io_fdatasync returned -1)";
@@ -273,12 +260,18 @@ Result<std::unique_ptr<WritableRegion>> AbtIOTarget::create(size_t size) {
         return result;
     }
     m_migration_lock.rdlock();
-    ssize_t s = abt_io_pwrite(m_abtio, m_fd, zero_block, alignedSize, offset);
-    if(s != (ssize_t)alignedSize) {
-        result.error() = fmt::format("abt_io_pwrite failed in create: {}", strerror(-s));
-        result.success() = false;
-        m_migration_lock.unlock();
-        return result;
+    ssize_t remaining = alignedSize;
+    size_t off = offset;
+    while(remaining) {
+        ssize_t s = abt_io_pwrite(m_abtio, m_fd, zero_block, alignedSize, off);
+        if(s <= 0) {
+            result.error() = fmt::format("abt_io_pwrite failed in create: {}", strerror(-s));
+            result.success() = false;
+            m_migration_lock.unlock();
+            return result;
+        }
+        remaining -= s;
+        off += s;
     }
     result.value() = std::make_unique<AbtIORegion>(this, regionID, offset);
     return result;
