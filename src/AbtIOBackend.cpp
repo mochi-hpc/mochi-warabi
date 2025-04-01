@@ -109,7 +109,7 @@ struct AbtIORegion : public WritableRegion, public ReadableRegion {
                     m_owner->m_abtio,
                     m_owner->m_fd,
                     ptr + offset,
-                    seg.second,
+                    remaining,
                     m_region_offset + seg.first);
                 if(s <= 0) {
                     result.success() = false;
@@ -263,7 +263,7 @@ Result<std::unique_ptr<WritableRegion>> AbtIOTarget::create(size_t size) {
     ssize_t remaining = alignedSize;
     size_t off = offset;
     while(remaining) {
-        ssize_t s = abt_io_pwrite(m_abtio, m_fd, zero_block, alignedSize, off);
+        ssize_t s = abt_io_pwrite(m_abtio, m_fd, zero_block, remaining, off);
         if(s <= 0) {
             result.error() = fmt::format("abt_io_pwrite failed in create: {}", strerror(-s));
             result.success() = false;
