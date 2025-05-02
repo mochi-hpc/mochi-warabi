@@ -282,7 +282,7 @@ Result<std::unique_ptr<warabi::Backend>> PmemTarget::recover(
 
 Result<std::unique_ptr<warabi::Backend>> PmemTarget::create(const thallium::engine& engine, const json& config) {
     const auto& path = config["path"].get_ref<const std::string&>();
-    size_t create_if_missing_with_size = config.value("create_if_missing_with_size", 0);
+    size_t create_if_missing_with_size = config.value("create_if_missing_with_size", (size_t)0);
     bool override_if_exists = config.value("override_if_exists", false);
 
     Result<std::unique_ptr<warabi::Backend>> result;
@@ -340,7 +340,7 @@ Result<bool> PmemTarget::validate(const json& config) {
     }
 
     const auto& path = config["path"].get_ref<const std::string&>();
-    size_t create_if_missing_with_size = config.value("create_if_missing_with_size", 0);
+    size_t create_if_missing_with_size = config.value("create_if_missing_with_size", (size_t)0);
     bool override_if_exists = config.value("override_if_exists", false);
     bool file_exists = std::filesystem::exists(path);
 
