@@ -2,6 +2,11 @@
 file (GLOB test-sources ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 foreach (test-source ${test-sources})
     get_filename_component (test-target ${test-source} NAME_WE)
+    # Skip Migration tests if REMI is not enabled
+    if (${test-target} MATCHES "Migration" AND NOT ${ENABLE_REMI})
+        message (STATUS "Skipping ${test-target} (ENABLE_REMI is OFF)")
+        continue()
+    endif ()
     add_executable (${test-target} ${test-source})
     target_link_libraries (${test-target} PRIVATE
         Catch2::Catch2WithMain warabi-server warabi-client

@@ -15,6 +15,7 @@ spack:
   - py-mochi-margo
   - py-configspace
   - mochi-bedrock+space
+  - py-pybind11
   concretizer:
     unify: true
     reuse: true
@@ -25,6 +26,8 @@ spack:
   packages:
     mochi-margo:
       require: "@0.15.0:"
+    py-mochi-margo:
+      require: "@0.6.0:"
     mochi-thallium:
       require: "@0.12.0:"
     mochi-remi:
