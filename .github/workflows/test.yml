@@ -52,7 +52,7 @@ jobs:
                  -DENABLE_REMI=ON \
                  -DCMAKE_BUILD_TYPE=RelWithDebInfo
         make
-        make test
+        ctest --output-on-failure
 
 #    - name: Push packages to buildcache and update index
 #      if: ${{ !cancelled() }}
