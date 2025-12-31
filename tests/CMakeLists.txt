@@ -5,7 +5,7 @@ foreach (test-source ${test-sources})
     # Skip Migration tests if REMI is not enabled
     if (${test-target} MATCHES "Migration" AND NOT ${ENABLE_REMI})
         message (STATUS "Skipping ${test-target} (ENABLE_REMI is OFF)")
-        continue()
+        continue ()
     endif ()
     add_executable (${test-target} ${test-source})
     target_link_libraries (${test-target} PRIVATE
