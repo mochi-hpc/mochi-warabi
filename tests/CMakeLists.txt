@@ -14,6 +14,8 @@ foreach (test-source ${test-sources})
     add_test (NAME ${test-target} COMMAND timeout 60s ./${test-target})
 endforeach ()
 
+if (ENABLE_PYTHON)
+
 # Set the path to the python directory
 set (PYTHON_MODULE_DIR ${CMAKE_SOURCE_DIR}/python)
 # Use file(GLOB_RECURSE ...) to find all files matching the test_*.py pattern
@@ -35,4 +37,6 @@ foreach (PYTHON_TEST_FILE ${PYTHON_TEST_FILES})
     endif ()
     set_property (TEST ${PYTHON_TEST_NAME} PROPERTY ENVIRONMENT
                   PYTHONPATH=${CMAKE_SOURCE_DIR}/python/:${CMAKE_BINARY_DIR}/python:$ENV{PYTHONPATH})
-endforeach()
+endforeach ()
+
+endif ()
