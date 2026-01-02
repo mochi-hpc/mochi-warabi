@@ -21,7 +21,7 @@ typedef struct warabi_target_handle* warabi_target_handle_t;
 
 typedef struct warabi_async_request* warabi_async_request_t;
 #define WARABI_ASYNC_REQUEST_NULL ((warabi_async_request_t)0)
-#define WARABI_ASYNC_REQUEST_IGNORE ((warabi_async_request_t)0)
+#define WARABI_ASYNC_REQUEST_IGNORE ((warabi_async_request_t*)0)
 
 typedef struct warabi_region {
     uint8_t opaque[16];
