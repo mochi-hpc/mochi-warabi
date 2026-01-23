@@ -30,3 +30,5 @@ in these pages) is in C++. However, Warabi also provide a C API and a Python API
    warabi/08_migration.rst
    warabi/11_c_api.rst
    warabi/12_python.rst
+   warabi/c_api.rst
+   warabi/cpp_api.rst
