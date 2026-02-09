@@ -8,7 +8,6 @@ spack:
   - pmdk
   - spdlog
   - fmt
-  - tclap
   - mochi-bedrock-module-api
   - mochi-abt-io+bedrock
   - mochi-remi+bedrock

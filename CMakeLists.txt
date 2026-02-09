@@ -60,8 +60,6 @@ find_package (thallium REQUIRED)
 # search for nlohmann/json and the validator library
 find_package (nlohmann_json REQUIRED)
 find_package (nlohmann_json_schema_validator REQUIRED)
-# search for TCLAP
-find_package (TCLAP REQUIRED)
 # search for spdlog
 find_package (spdlog REQUIRED)
 # search for fmt
@@ -103,6 +101,5 @@ if (${ENABLE_TESTS})
     add_subdirectory (tests)
 endif (${ENABLE_TESTS})
 if (${ENABLE_EXAMPLES})
-    add_subdirectory (examples)
     add_subdirectory (docs/examples/warabi)
 endif (${ENABLE_EXAMPLES})

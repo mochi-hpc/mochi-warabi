@@ -9,7 +9,6 @@ spack:
   - spdlog
   - pmdk
   - fmt
-  - tclap
   - mochi-bedrock-module-api
   - mercury~boostsys~checksum ^libfabric fabrics=tcp,rxm
   - mochi-remi
